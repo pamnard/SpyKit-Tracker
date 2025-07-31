@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Тестовая страница с пикселем</title>
+    <script>
+        var _spy = window._spy = window._spy || [];
+
+        // Configuration
+        _spy.push(['config', 'baseUrl', 'https://localhost:8080']);
+        _spy.push(['config', 'namespace', 'spyKit_']); // namespace for localStorage
+        _spy.push(['config', 'domains', ['localhost', 'example.com', 'shop.example.com']]);
+        _spy.push(['config', 'batchSize', 5]);
+        _spy.push(['config', 'batchTimeout', 10]);
+        _spy.push(['config', 'sessionTimeout', 30]);
+        _spy.push(['config', 'maxFailedEvents', 100]); // higher limit for failed events
+        _spy.push(['config', 'retryInterval', 30000]); // check more often (30 sec)
+        _spy.push(['config', 'domainSync', true]); // enable cross-domain synchronization
+
+        // Disable individual events (all enabled by default)
+        // _spy.push(['config', 'scrollTracking', false]);
+        // _spy.push(['config', 'clickTracking', false]);
+        // _spy.push(['config', 'formTracking', false]);
+        // _spy.push(['config', 'downloadTracking', false]);
+        // _spy.push(['config', 'visibilityTracking', false]);
+
+        (function () {
+            var js = document.createElement('script');
+            js.async = true;
+            js.src = '/pixel.js';
+            var f = document.getElementsByTagName('script')[0];
+            f.parentNode.insertBefore(js, f);
+        })();
+    </script>
+</head>
+
+<body>
+    <h1>Example page with analytics pixel</h1>
+    <button onclick="_spy.push(['track', 'click', {button: 'test'}])">Test button</button>
+    <a href="https://google.com">External link</a>
+    <a href="https://shop.example.com/products">Internal link (other domain)</a>
+    <a href="/contact.pdf">Download PDF</a>
+
+    <form id="test-form">
+        <input name="email" type="email" placeholder="Email">
+        <button type="submit">Submit form</button>
+    </form>
+
+    <script>
+        // Usage examples
+        function testDebug() {
+            _spy.push(['debug', true]); // enable debug
+        }
+
+        function testSetUserId() {
+            _spy.push(['setUserId', 'user_123']); // set CRM ID
+        }
+
+        function testCustomEvent() {
+            _spy.push(['track', 'purchase', { value: 100, currency: 'USD' }]);
+        }
+    </script>
+</body>
+
+</html>
