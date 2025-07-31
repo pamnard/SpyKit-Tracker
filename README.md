@@ -506,14 +506,14 @@ end
 ```lua
 -- Получение параметров из URL
 local args = ngx.req.get_uri_args()
-local client_id = args.client_id
+local visitor_id = args.visitor_id
 
 -- Установка куки на корневом домене
 local host = ngx.var.host
 local domain = "." .. host -- Упрощено для примера
 local expires = ngx.cookie_time(ngx.time() + 365 * 24 * 3600)
-local cookie_value = string.format("spyKit_client_id=%s; expires=%s; domain=%s; path=/",
-    client_id, expires, domain)
+local cookie_value = string.format("spyKit_visitor_id=%s; expires=%s; domain=%s; path=/",
+    visitor_id, expires, domain)
 
 ngx.header["Set-Cookie"] = cookie_value
 
@@ -525,13 +525,13 @@ ngx.print(gif_data)
 
 ## 🔒 Кросс-доменное отслеживание
 
-SpyKit поддерживает автоматическую синхронизацию user ID между несколькими доменами:
+SpyKit поддерживает автоматическую синхронизацию visitor ID между несколькими доменами:
 
 ### Как это работает
 
-1. **Первый визит**: Пользователь посещает `example.com`, получает `client_id` через fingerprinting
+1. **Первый визит**: Пользователь посещает `example.com`, получает `visitor_id` через fingerprinting
 2. **Синхронизация**: Пиксель отправляет запросы ко всем настроенным доменам
-3. **Установка куки**: Каждый домен получает и сохраняет тот же `client_id`
+3. **Установка куки**: Каждый домен получает и сохраняет тот же `visitor_id`
 4. **Единое отслеживание**: Пользователь отслеживается согласованно на всех доменах
 
 ### Конфигурация
@@ -556,14 +556,14 @@ _spy.push([
 ```
 Пользователь посещает example.com
     ↓
-Генерация client_id: fp_abc123
+Генерация visitor_id: fp_abc123
     ↓
 Отправка sync запросов:
-- https://shop.example.com/sync?client_id=fp_abc123
-- https://blog.example.com/sync?client_id=fp_abc123
-- https://support.example.com/sync?client_id=fp_abc123
+- https://shop.example.com/sync?visitor_id=fp_abc123
+- https://blog.example.com/sync?visitor_id=fp_abc123
+- https://support.example.com/sync?visitor_id=fp_abc123
     ↓
-Каждый домен устанавливает куки: spyKit_client_id=fp_abc123
+Каждый домен устанавливает куки: spyKit_visitor_id=fp_abc123
     ↓
 Пользователь теперь имеет одинаковый ID на всех доменах
 ```
