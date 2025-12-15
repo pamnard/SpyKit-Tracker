@@ -59,12 +59,12 @@ SpyKit follows a classic Big Data Pipeline architecture:
 
 ```mermaid
 graph LR
-    User[User Browser] -->|Pixel Request| Nginx[Nginx + Lua]
-    Nginx -->|JSON Log| Vector[Vector (Buffer)]
-    Vector -->|Batch Insert| ClickHouse[(ClickHouse DB)]
-    ClickHouse -->|SQL| Backend[Go Backend]
-    Backend -->|API| Frontend[React Dashboard]
-    Backend -->|Auth| PocketBase[(PocketBase Auth)]
+    User["User Browser"] -->|Pixel Request| Nginx["Nginx + Lua"]
+    Nginx -->|"JSON Log"| Vector["Vector (Buffer)"]
+    Vector -->|"Batch Insert"| ClickHouse[("ClickHouse DB")]
+    ClickHouse -->|SQL| Backend["Go Backend"]
+    Backend -->|API| Frontend["React Dashboard"]
+    Backend -->|Auth| PocketBase[("PocketBase Auth")]
 ```
 
 1.  **Tracker (JS):** Collects events (pageview, click, custom) and sends them to Nginx.
