@@ -1,0 +1,44 @@
+data_dir = "/var/lib/vector"
+
+# --- Source: Read logs from shared volume ---
+[sources.nginx_logs]
+type = "file"
+include = ["/var/log/spykit/events*.log"]
+ignore_older_secs = 600
+read_from = "beginning"
+
+# --- Transform: Parse JSON from Log Line ---
+[transforms.parse_logs]
+type = "remap"
+inputs = ["nginx_logs"]
+source = '''
+  . = parse_json!(.message)
+'''
+
+# --- Transform: Prepare NDJSON string ---
+# We encode each event back to a JSON string so we can use 'text' codec in sink
+[transforms.prepare_ndjson]
+type = "remap"
+inputs = ["parse_logs"]
+source = '''
+  . = encode_json(.)
+'''
+
+# --- Sink: Debug (Print to console) ---
+[sinks.console]
+type = "console"
+inputs = ["parse_logs"]
+encoding.codec = "json"
+
+# --- Sink: Go Processor ---
+[sinks.processor]
+type = "http"
+inputs = ["prepare_ndjson"]
+uri = "http://processor:8080/ingest"
+
+[sinks.processor.encoding]
+codec = "text"
+
+[sinks.processor.batch]
+max_events = 1000
+timeout_secs = 1

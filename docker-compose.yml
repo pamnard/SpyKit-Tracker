@@ -1,0 +1,195 @@
+services:
+  # --- 0. Init Permissions (Fix logs volume rights) ---
+  init-perms:
+    image: alpine:latest
+    command: sh -c "mkdir -p /var/log/spykit && chmod 777 /var/log/spykit"
+    volumes:
+      - logs_volume:/var/log/spykit
+    networks:
+      - spykit_net
+
+  # --- 0.5. Pixel Builder ---
+  pixel-builder:
+    image: node:18-alpine
+    container_name: spykit_pixel_builder
+    volumes:
+      - ./tracker:/src
+      - pixel_dist:/dist
+    working_dir: /src
+    # Build pixel.src.js -> /dist/pixel.js
+    command: sh -c "npm install -g terser && terser pixel.src.js -c -m -o /dist/pixel.js"
+    networks:
+      - spykit_net
+
+  # --- 1. Pixel (Nginx + Lua) ---
+  pixel:
+    build:
+      context: .
+      dockerfile: ops/pixel.Dockerfile
+    container_name: spykit_pixel
+    restart: always
+    ports:
+      - "${PIXEL_PORT}:80" # Expose pixel
+    environment:
+      - MAXMIND_ACCOUNT_ID=${MAXMIND_ACCOUNT_ID}
+      - MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY}
+    volumes:
+      - ./config/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./lua:/opt/spykit/lua:ro
+      - pixel_dist:/opt/spykit/dist:ro # Read built pixel from volume
+      - logs_volume:/var/log/spykit
+      - geoip_data:/opt/spykit/geoip:ro
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+      pixel-builder:
+        condition: service_completed_successfully
+      geoip-updater:
+        condition: service_started
+    networks:
+      - spykit_net
+
+  # --- 1.5 GeoIP Updater ---
+  geoip-updater:
+    image: maxmindinc/geoipupdate
+    container_name: spykit_geoip_updater
+    restart: always
+    environment:
+      - GEOIPUPDATE_ACCOUNT_ID=${MAXMIND_ACCOUNT_ID}
+      - GEOIPUPDATE_LICENSE_KEY=${MAXMIND_LICENSE_KEY}
+      - GEOIPUPDATE_EDITION_IDS=GeoLite2-City
+      - GEOIPUPDATE_FREQUENCY=168 # Update once a week (in hours)
+    volumes:
+      - geoip_data:/usr/share/GeoIP
+    networks:
+      - spykit_net
+
+  # --- 2. Data Pipeline (Vector) ---
+  vector:
+    image: timberio/vector:0.34.1-alpine
+    container_name: spykit_vector
+    restart: always
+    environment:
+      - VECTOR_CONFIG=/etc/vector/vector.toml
+    volumes:
+      - ./config/vector/vector.toml:/etc/vector/vector.toml:ro
+      - logs_volume:/var/log/spykit:ro # Read logs from shared volume
+      - vector_data:/var/lib/vector
+    depends_on:
+      processor:
+        condition: service_started
+      init-perms:
+        condition: service_completed_successfully
+    networks:
+      - spykit_net
+
+  # --- 2.5. Processor (Go) ---
+  processor:
+    build:
+      context: ./backend
+      dockerfile: processor.Dockerfile
+    container_name: spykit_processor
+    restart: always
+    environment:
+      - PROCESSOR_PORT=8080
+      - CLICKHOUSE_HOST=clickhouse:8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    depends_on:
+      - clickhouse
+    networks:
+      - spykit_net
+
+  # --- 3. Analytics DB (ClickHouse) ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: spykit_clickhouse
+    restart: always
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT}:8123" # HTTP port
+      - "${CLICKHOUSE_NATIVE_PORT}:9000" # Native port
+    environment:
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      # - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - spykit_net
+
+  # --- 4. Profiles DB (PocketBase) ---
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: spykit_pocketbase
+    restart: always
+    ports:
+      - "${POCKETBASE_PORT}:8090"
+    volumes:
+      - pocketbase_data:/pb_data
+    networks:
+      - spykit_net
+
+  # --- 5. Backend API (Go) ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: spykit_backend
+    restart: always
+    ports:
+      - "${BACKEND_PORT}:3000"
+    environment:
+      - CLICKHOUSE_HOST=clickhouse:8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - POCKETBASE_URL=http://pocketbase:8090
+      - REPORT_DB_PATH=/app/data/reports.db
+      - INITIAL_ADMIN_USER=admin
+      - INITIAL_ADMIN_PASSWORD=secret
+      - JWT_SECRET=change_me_in_prod
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      - clickhouse
+      - pocketbase
+    networks:
+      - spykit_net
+
+  # --- 6. Frontend (React) ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: spykit_frontend
+    restart: always
+    ports:
+      - "${FRONT_HOST_PORT}:${FRONT_CONTAINER_PORT}"
+    depends_on:
+      - backend
+    networks:
+      - spykit_net
+
+networks:
+  spykit_net:
+    driver: bridge
+
+volumes:
+  logs_volume:
+    name: spykit_logs_volume
+  clickhouse_data:
+    name: spykit_clickhouse_data
+  vector_data:
+    name: spykit_vector_data
+  pixel_dist:
+    name: spykit_pixel_dist
+  geoip_data:
+    name: spykit_geoip_data
+  pocketbase_data:
+    name: spykit_pocketbase_data
+  backend_data:
+    name: spykit_backend_data

@@ -1,0 +1,13 @@
+{
+    "scripts": {
+        "build:pixel": "terser tracker/pixel.src.js -c -m -o tracker/pixel.js"
+    },
+    "dependencies": {
+        "@monaco-editor/react": "^4.7.0",
+        "react-syntax-highlighter": "^16.1.0"
+    },
+    "devDependencies": {
+        "@types/react-syntax-highlighter": "^15.5.13",
+        "terser": "^5.39.0"
+    }
+}

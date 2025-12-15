@@ -1,0 +1,149 @@
+@config "../tailwind.config.js";
+@import "tailwindcss";
+
+@layer base {
+    html {
+        font-family: "Roboto Mono", monospace;
+    }
+}
+
+:root {
+    --bg: 249 250 251;
+    /* zinc-50 */
+    --surface: 255 255 255;
+    --surface-muted: 235 236 238;
+    /* sidebar slightly darker */
+    --surface-strong: 228 228 231;
+    /* zinc-200 */
+    --border: 220 221 224;
+    /* darker for sidebar visibility */
+    --border-strong: 220 222 226;
+    /* soft strong */
+    --text: 24 24 27;
+    /* zinc-900 */
+    --muted: 63 63 70;
+    /* zinc-700 */
+    --subtle: 113 113 122;
+    /* zinc-500 */
+    --primary: 0 0 0;
+    /* black */
+    --primary-strong: 24 24 27;
+    /* zinc-900 */
+    --primary-contrast: 255 255 255;
+    /* white */
+    --danger: 225 29 72;
+    /* rose-600 */
+}
+
+.dark {
+    --bg: 16 16 20;
+    /* slightly lighter main bg */
+    --surface: 30 30 36;
+    /* lighter main surface */
+    --surface-muted: 12 12 16;
+    /* darker sidebar in dark */
+    --surface-strong: 44 44 52;
+    /* cards */
+    --border: 28 28 34;
+    /* borders on main */
+    --border-strong: 42 42 50;
+    /* slightly stronger */
+    --text: 228 228 231;
+    /* zinc-200 */
+    --muted: 161 161 170;
+    /* zinc-400 */
+    --subtle: 113 113 122;
+    /* zinc-500 */
+    --primary: 255 255 255;
+    /* white */
+    --primary-strong: 228 228 231;
+    /* zinc-200 */
+    --primary-contrast: 0 0 0;
+    /* black */
+    --danger: 244 63 94;
+    /* rose-500 */
+}
+
+@keyframes sky-shift {
+
+    0%,
+    100% {
+        color: rgb(125 211 252);
+        /* sky-300 - светло-небесный */
+    }
+
+    50% {
+        color: rgb(2 132 199);
+        /* sky-600 - более темный */
+    }
+}
+
+.dark .logo-icon-shift {
+    animation: sky-shift 3s ease-in-out infinite;
+}
+
+@layer utilities {
+    .bg-bg {
+        background-color: rgb(var(--bg));
+    }
+
+    .bg-surface {
+        background-color: rgb(var(--surface));
+    }
+
+    .bg-surface-muted {
+        background-color: rgb(var(--surface-muted));
+    }
+
+    .bg-surface-strong {
+        background-color: rgb(var(--surface-strong));
+    }
+
+    .text-text {
+        color: rgb(var(--text));
+    }
+
+    .text-muted {
+        color: rgb(var(--muted));
+    }
+
+    .text-subtle {
+        color: rgb(var(--subtle));
+    }
+
+    .text-primary-strong {
+        color: rgb(var(--primary-strong));
+    }
+
+    .text-primary-contrast {
+        color: rgb(var(--primary-contrast));
+    }
+
+    .text-danger {
+        color: rgb(var(--danger));
+    }
+
+    .border-border {
+        border-color: rgb(var(--border));
+    }
+
+    .border-border-strong {
+        border-color: rgb(var(--border-strong));
+    }
+
+    .border-primary {
+        border-color: rgb(var(--primary));
+    }
+
+    .border-danger {
+        border-color: rgb(var(--danger));
+    }
+
+    .bg-primary\/15 {
+        background-color: color-mix(in srgb, rgb(var(--primary)) 10%, transparent);
+    }
+
+    .bg-primary {
+        background-color: rgb(var(--primary));
+    }
+}

@@ -1,0 +1,42 @@
+# IDEs
+.idea/
+.cursor/
+.kiro/
+.stfolder/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+.env
+
+# Go
+bin/
+*.exe
+*.test
+vendor/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Project Data (volumes are used instead)
+data/
+pocketbase/pb_data/
+logs/
+pixel.js
+
+# Local config overrides
+config.local.lua
+
