@@ -80,10 +80,10 @@ graph LR
 For local development or VPS testing:
 
 1.  **Clone the repository:**
-
+    
     ```bash
-    git clone https://github.com/your/spykit.git
-    cd spykit
+    git clone https://github.com/pamnard/SpyKit-Tracker.git
+    cd SpyKit-Tracker
     ```
 
 2.  **Configure environment:**
