@@ -1,6 +1,15 @@
 -- Load JSON library
 local cjson = require "cjson"
 
+-- Add CORS headers
+ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+ngx.header["Access-Control-Allow-Headers"] = "Content-Type"
+
+if ngx.req.get_method() == "OPTIONS" then
+    ngx.exit(204)
+end
+
 -- Helper to get log file path
 local function get_log_file_path(prefix)
     local timestamp = os.date("*t")

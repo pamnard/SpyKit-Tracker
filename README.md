@@ -47,11 +47,12 @@ Out-of-the-box tracking without coding:
   - **File Downloads:** Auto-detects download links (PDF, ZIP, etc.).
   - **Visibility:** Tracks when the tab becomes hidden/visible for accurate "Time on Page" metrics.
 
-### 🆔 Robust Visitor Identification
+### 🆔 Robust Visitor Identification (Session Handoff)
 
 - Generates a stable `visitor_id` based on anonymous device signals.
-- Works even if cookies are cleared or blocked, ensuring consistent user journey tracking.
-- Syncs IDs across subdomains and (optionally) cross-domains.
+- **Device Matching:** Uses Canvas, WebGL, and AudioContext signals to re-identify visitors even if cookies are lost or they switch from WebView to Browser.
+- **Session Linking:** Automatically links sessions across different domains or apps within a 15-minute window.
+- Syncs IDs across subdomains and (optionally) cross-domains via image pixel.
 
 ## 🏗 Architecture
 
@@ -59,12 +60,12 @@ SpyKit follows a classic Big Data Pipeline architecture:
 
 ```mermaid
 graph LR
-    User[User Browser] -->|Pixel Request| Nginx[Nginx + Lua]
-    Nginx -->|JSON Log| Vector[Vector (Buffer)]
-    Vector -->|Batch Insert| ClickHouse[(ClickHouse DB)]
-    ClickHouse -->|SQL| Backend[Go Backend]
-    Backend -->|API| Frontend[React Dashboard]
-    Backend -->|Auth| PocketBase[(PocketBase Auth)]
+    User["User Browser"] -->|Pixel Request| Nginx["Nginx + Lua"]
+    Nginx -->|"JSON Log"| Vector["Vector (Buffer)"]
+    Vector -->|"Batch Insert"| ClickHouse[("ClickHouse DB")]
+    ClickHouse -->|SQL| Backend["Go Backend"]
+    Backend -->|API| Frontend["React Dashboard"]
+    Backend -->|Auth| PocketBase[("PocketBase Auth")]
 ```
 
 1.  **Tracker (JS):** Collects events (pageview, click, custom) and sends them to Nginx.
@@ -192,7 +193,7 @@ _spy.push(["config", "clickTracking", true]); // Toggle click tracking (default:
 
 - `backend/` — Go API service (report management, ClickHouse proxy).
 - `frontend/` — React SPA (admin dashboard).
-- `tracker/` — JS tracker source code (`pixel.src.js`).
+- `tracker/` — JS tracker source code (modular structure in `src/`, builds to `pixel.js` via Rollup).
 - `lua/` — Nginx logic (GeoIP, request processing).
 - `config/` — Configs for ClickHouse, Vector, Nginx.
 - `ops/` — Docker files and deployment scripts.

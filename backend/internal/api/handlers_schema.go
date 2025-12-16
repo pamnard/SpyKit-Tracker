@@ -14,7 +14,7 @@ import (
 // virtualSchema defines known keys for Map columns to expose them as fields in UI.
 var virtualSchema = map[string][]string{
 	"ids": {
-		"uid", "device_id", "session_id",
+		"user_id", "visitor_id", "session_id",
 	},
 	"context": {
 		"ip", "user_agent", "url", "referrer",

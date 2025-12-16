@@ -39,8 +39,19 @@ func MapToEvent(raw map[string]interface{}) (*Event, error) {
 	e.EventName = Validate(toString(raw["event_name"]), Sanitize, MaxLength(100))
 
 	// 2. IDs: Strict alphanumeric+
-	e.IDs["uid"] = Validate(toString(raw["uid"]), Sanitize, MaxLength(64), IsID)
-	e.IDs["device_id"] = Validate(toString(raw["device_id"]), Sanitize, MaxLength(64), IsID)
+	e.IDs["user_id"] = Validate(toString(raw["user_id"]), Sanitize, MaxLength(64), IsID)
+	// Fallback for legacy events
+	if e.IDs["user_id"] == "" {
+		e.IDs["user_id"] = Validate(toString(raw["uid"]), Sanitize, MaxLength(64), IsID)
+	}
+
+	// Standardize on visitor_id
+	e.IDs["visitor_id"] = Validate(toString(raw["visitor_id"]), Sanitize, MaxLength(64), IsID)
+	// Fallback for legacy events
+	if e.IDs["visitor_id"] == "" {
+		e.IDs["visitor_id"] = Validate(toString(raw["device_id"]), Sanitize, MaxLength(64), IsID)
+	}
+	
 	e.IDs["session_id"] = Validate(toString(raw["session_id"]), Sanitize, MaxLength(64), IsID)
 
 	// 3. Context & Geo
@@ -92,6 +103,8 @@ func MapToEvent(raw map[string]interface{}) (*Event, error) {
 		if conn, ok := device["connection"].(map[string]interface{}); ok {
 			flatten("", conn, e.Tech)
 		}
+		
+		// Fingerprints are used for session linking in main.go, not stored in DB
 	} else {
 		e.Device["platform"] = Validate(toString(raw["platform"]), Sanitize, MaxLength(50))
 	}

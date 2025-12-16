@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS default.events
     `timestamp` DateTime DEFAULT now(),
     `event_name` String,
     
-    `ids` Map(String, String),     -- uid, device_id, session_id
+    `ids` Map(String, String),     -- user_id, visitor_id, session_id
     `context` Map(String, String), -- ip, user_agent, page_url, referrer
     `device` Map(String, String),  -- platform, screen_*, language, timezone
     `geo` Map(String, String),     -- country, city, region, postal_code, latitude, longitude, continent, metro_code, timezone

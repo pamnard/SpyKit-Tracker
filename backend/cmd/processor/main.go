@@ -25,6 +25,9 @@ func main() {
 	// 2. Connect to ClickHouse
 	ch := mustConnectClickHouse(chHost, chUser, chPass)
 
+	// 2.5. Init Fingerprint Service (Session Handoff)
+	fpService := NewFingerprintService(15 * time.Minute)
+
 	// 3. HTTP Handler
 	http.HandleFunc("/ingest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -54,6 +57,12 @@ func main() {
 			if err := json.Unmarshal(line, &rawEvent); err != nil {
 				log.Printf("Skipping bad NDJSON line: %v", err)
 				continue
+			}
+
+			// 2.6. Identify / Link Sessions
+			if linkedID, found := fpService.Identify(rawEvent); found {
+				// SWAP the ID: Continue the session of the identified user
+				rawEvent["visitor_id"] = linkedID
 			}
 
 			// Map & Enrich

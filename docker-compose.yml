@@ -16,8 +16,8 @@ services:
       - ./tracker:/src
       - pixel_dist:/dist
     working_dir: /src
-    # Build pixel.src.js -> /dist/pixel.js
-    command: sh -c "npm install -g terser && terser pixel.src.js -c -m -o /dist/pixel.js"
+    # Build src/index.js -> /dist/pixel.js using Rollup + Terser
+    command: sh -c "npm install -g rollup terser && rollup src/index.js --format iife --name SpyPixel --file dist/pixel.unminified.js && terser dist/pixel.unminified.js -c -m -o /dist/pixel.js"
     networks:
       - spykit_net
 
