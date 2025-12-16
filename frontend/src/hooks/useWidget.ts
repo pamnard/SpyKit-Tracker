@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { widgetApi } from '../services/api';
 import { Widget } from '../types';
 
@@ -14,7 +14,7 @@ export const useWidgetData = (id: string, range?: { from?: string; to?: string }
         queryKey: ['widget-data', id, range],
         queryFn: () => widgetApi.getData(id, range),
         enabled: enabled && !!id,
-        // Optional: refetchInterval for live updates if needed, logic from useWidgetItem can move here
+        placeholderData: keepPreviousData,
     });
 };
 

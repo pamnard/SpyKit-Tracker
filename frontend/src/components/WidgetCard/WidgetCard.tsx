@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Widget } from '../../types';
 import { DateRangePicker } from '../DateRangePicker';
 import { useWidgetItem, PRESETS, computeRelative } from '../../hooks/useWidgetItem';
 import { useWidgetData, useUpdateWidget } from '../../hooks/useWidget';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export interface WidgetCardProps {
     widget: Widget;
+    className?: string;
 }
 
 type Preset = '1h' | '24h' | '7d' | '14d' | '30d';
 
-export function WidgetCard({ widget }: WidgetCardProps) {
+export function WidgetCard({ widget, className }: WidgetCardProps) {
     const {
         mode,
         setMode,
@@ -21,10 +23,6 @@ export function WidgetCard({ widget }: WidgetCardProps) {
         rangeToParams
     } = useWidgetItem(widget);
 
-    // Fetch data using React Query
-    // We pass rangeToParams. If mode is 'relative', this range is static at the moment of render,
-    // so we need a mechanism to update it periodically if we want "live" relative windows.
-    // Ideally, useWidgetData could handle refetchInterval.
     const { data, isLoading, error } = useWidgetData(
         widget.id,
         rangeToParams,
@@ -46,7 +44,6 @@ export function WidgetCard({ widget }: WidgetCardProps) {
     const [rangeError, setRangeError] = useState<string | null>(null);
     const [editing, setEditing] = useState<boolean>(false);
 
-    // Sync inputs when range changes externally
     useEffect(() => {
         if (rangeToParams) {
             setFromInput(toLocalInput(new Date(rangeToParams.from)));
@@ -54,26 +51,22 @@ export function WidgetCard({ widget }: WidgetCardProps) {
         }
     }, [rangeToParams]);
 
-    // Live update for relative mode
-    // We can't easily rely on React Query's refetchInterval alone because the *params* (the time range) need to shift.
-    // So we force a re-calc of relative params periodically in useWidgetItem or here.
-    // For now, let's keep it simple: relying on useWidgetData's cache key change when rangeToParams changes?
-    // Wait, useWidgetItem returns static rangeToParams that only updates when mode/preset changes, OR when we re-compute.
-    // To make it "live", we need to update appliedRange periodically if relative.
-
     useEffect(() => {
         let interval: ReturnType<typeof setInterval>;
         if (mode === 'relative') {
-            interval = setInterval(() => {
-                const fresh = computeRelative(preset);
-                // Updating appliedRange will trigger useWidgetData with new params
-                setAppliedRange(fresh);
-            }, 60000);
+            const refreshMs = (widget.refreshInterval || 0) * 1000;
+            
+            if (refreshMs > 0) {
+                interval = setInterval(() => {
+                    const fresh = computeRelative(preset);
+                    setAppliedRange(fresh);
+                }, refreshMs);
+            }
         }
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [mode, preset, setAppliedRange]);
+    }, [mode, preset, setAppliedRange, widget.refreshInterval]);
 
 
     const applyRange = () => {
@@ -107,7 +100,6 @@ export function WidgetCard({ widget }: WidgetCardProps) {
         setRangeError(null);
         setEditing(false);
 
-        // Optimistically update local state
         const rel = computeRelative(p);
         setAppliedRange(rel);
 
@@ -118,16 +110,107 @@ export function WidgetCard({ widget }: WidgetCardProps) {
         });
     };
 
-    const displayValue = isLoading ? '…' : (data ? data.value.toLocaleString() : '—');
-    const displayError = error ? (error as Error).message : null;
+    // Prepare data for rendering
+    const chartData = useMemo(() => {
+        if (!data || !data.data) return [];
+        return data.data;
+    }, [data]);
+
+    // Determine keys for X and Y axes
+    const { xKey, yKey } = useMemo(() => {
+        if (!chartData || chartData.length === 0) return { xKey: '', yKey: '' };
+        const keys = Object.keys(chartData[0]);
+        // Simple heuristic: first key is X, second is Y.
+        // Or prefer keys like "time", "date", "timestamp" for X.
+        const x = keys.find(k => /time|date|minute|hour|day/.test(k)) || keys[0];
+        const y = keys.find(k => k !== x) || keys[1] || keys[0];
+        return { xKey: x, yKey: y };
+    }, [chartData]);
+
+    const renderContent = () => {
+        if (isLoading) return <div className="h-full flex items-center justify-center text-muted">Loading...</div>;
+        if (error) return <div className="text-xs text-danger">{(error as Error).message}</div>;
+
+        if (widget.type === 'stat' || !widget.type) {
+             let val: any = '—';
+             if (data?.data && data.data.length > 0) {
+                 // Try to find "value" key, or take first value
+                 val = data.data[0].value !== undefined ? data.data[0].value : Object.values(data.data[0])[0];
+             }
+             // Format number if possible
+             if (typeof val === 'number') val = val.toLocaleString();
+
+             return <p className="text-3xl font-semibold">{val}</p>;
+        }
+
+        if (widget.type === 'bar') {
+            return (
+                <div className="h-48 w-full mt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
+                            <XAxis 
+                                dataKey={xKey} 
+                                tick={{fontSize: 10, fill: '#888'}} 
+                                tickFormatter={(val) => {
+                                    // If val looks like time "HH:MM", return as is
+                                    if (typeof val === 'string' && val.match(/^\d{1,2}:\d{2}$/)) {
+                                        return val;
+                                    }
+                                    // Try to format date
+                                    try { 
+                                        const d = new Date(val);
+                                        if (isNaN(d.getTime())) return val;
+                                        return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
+                                    }
+                                    catch { return val; }
+                                }}
+                            />
+                            <YAxis tick={{fontSize: 10, fill: '#888'}} width={30} />
+                            <Tooltip 
+                                contentStyle={{backgroundColor: '#222', borderColor: '#444', color: '#eee'}}
+                                itemStyle={{color: '#eee'}}
+                            />
+                            <Bar dataKey={yKey} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            );
+        }
+
+        if (widget.type === 'line') {
+             return (
+                <div className="h-48 w-full mt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
+                            <XAxis 
+                                dataKey={xKey} 
+                                tick={{fontSize: 10, fill: '#888'}} 
+                                tickFormatter={(val) => {
+                                    try { return new Date(val).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); }
+                                    catch { return val; }
+                                }}
+                            />
+                            <YAxis tick={{fontSize: 10, fill: '#888'}} width={30} />
+                            <Tooltip 
+                                contentStyle={{backgroundColor: '#222', borderColor: '#444', color: '#eee'}}
+                            />
+                            <Line type="monotone" dataKey={yKey} stroke="#10b981" strokeWidth={2} dot={false} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            );
+        }
+
+        return <div className="text-muted text-sm">Unknown widget type</div>;
+    };
 
     return (
-        <section className="rounded-md border border-border bg-surface-muted p-4">
+        <section className={`rounded-md border border-border bg-surface-muted p-4 flex flex-col h-full min-h-[150px] ${className || ''}`}>
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                     <p className="text-sm text-muted">{widget.title}</p>
-                    <p className="text-3xl font-semibold">{displayValue}</p>
-                    {displayError ? <p className="text-xs text-subtle">{displayError}</p> : null}
                     {rangeError ? <p className="text-xs text-danger">{rangeError}</p> : null}
                 </div>
                 <DateRangePicker
@@ -143,6 +226,10 @@ export function WidgetCard({ widget }: WidgetCardProps) {
                     isOpen={editing}
                     onToggle={() => setEditing((v) => !v)}
                 />
+            </div>
+            
+            <div className="flex-1 flex flex-col justify-center">
+                {renderContent()}
             </div>
         </section>
     );

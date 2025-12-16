@@ -15,6 +15,8 @@ export function EditViewPage() {
     const [name, setName] = useState('');
     const [query, setQuery] = useState('');
     const [isMaterialized, setIsMaterialized] = useState(false);
+    const [engine, setEngine] = useState('SummingMergeTree');
+    const [orderBy, setOrderBy] = useState('(event_date, event_name)');
     const [error, setError] = useState<string | null>(null);
 
     // Sync state when data is loaded
@@ -23,22 +25,51 @@ export function EditViewPage() {
             setName(viewData.name);
             
             // Extract SELECT query from DDL
-            // DDL format: CREATE [MATERIALIZED] VIEW [db.]name [TO ...] AS SELECT ...
-            // Simple regex to find "AS" (case insensitive) followed by query
-            const match = viewData.query.match(/AS\s+([\s\S]+)$/i);
-            const selectQuery = match ? match[1].trim() : viewData.query;
+            // DDL format: CREATE [MATERIALIZED] VIEW [db.]name [ENGINE=...] [ORDER BY ...] [POPULATE] AS SELECT ...
+            
+            const ddl = viewData.query;
+            const isMat = ddl.toUpperCase().includes('MATERIALIZED VIEW');
+            setIsMaterialized(isMat);
+
+            // Extract AS SELECT part
+            const matchAs = ddl.match(/AS\s+(SELECT[\s\S]+)$/i);
+            const selectQuery = matchAs ? matchAs[1].trim() : ddl;
             setQuery(selectQuery);
             
-            setIsMaterialized(viewData.query.toUpperCase().includes('MATERIALIZED VIEW'));
+            if (isMat) {
+                // Try to extract ENGINE
+                const matchEngine = ddl.match(/ENGINE\s*=\s*(\w+)/i);
+                if (matchEngine) {
+                    setEngine(matchEngine[1]);
+                }
+
+                // Try to extract ORDER BY
+                // ORDER BY (col1, col2)
+                const matchOrderBy = ddl.match(/ORDER BY\s+(\([^\)]+\)|[^\s]+)/i);
+                if (matchOrderBy) {
+                    setOrderBy(matchOrderBy[1]);
+                }
+            }
         }
     }, [viewData]);
 
     const handleSave = async () => {
         if (!id || !name || !query) return;
+        if (isMaterialized && (!engine || !orderBy)) {
+            setError('Engine and Order By are required for Materialized Views');
+            return;
+        }
 
         setError(null);
         try {
-            await updateViewMutation.mutateAsync({ id, name, query, isMaterialized });
+            await updateViewMutation.mutateAsync({ 
+                id, 
+                name, 
+                query, 
+                isMaterialized,
+                engine: isMaterialized ? engine : undefined,
+                orderBy: isMaterialized ? orderBy : undefined
+            });
             navigate(`/views/${id}`);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Unknown error');
@@ -51,7 +82,7 @@ export function EditViewPage() {
         <div>
             <LayoutHeader title={`Edit View: ${name}`} baseUrl={`/views/${id}`} />
 
-            <div className="p-6 max-w-4xl mx-auto space-y-6">
+            <div className="p-6 w-full mx-auto space-y-6">
                 <div className="grid gap-4 bg-surface p-6 rounded-lg border border-border">
                     <div className="bg-surface-muted p-4 rounded-md border border-amber-500/30 text-amber-500 text-sm mb-2">
                         <strong>Warning:</strong> Editing a view will DROP and RECREATE it. 
@@ -80,6 +111,33 @@ export function EditViewPage() {
                         />
                         <label htmlFor="materialized" className="text-sm text-text">Materialized View</label>
                     </div>
+
+                    {isMaterialized && (
+                        <div className="grid grid-cols-2 gap-4 p-4 bg-surface-muted rounded-md border border-border/50">
+                            <div>
+                                <label className="block text-sm font-medium text-muted mb-1">Table Engine</label>
+                                <select
+                                    value={engine}
+                                    onChange={(e) => setEngine(e.target.value)}
+                                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+                                >
+                                    <option value="SummingMergeTree">SummingMergeTree (Recommended)</option>
+                                    <option value="AggregatingMergeTree">AggregatingMergeTree</option>
+                                    <option value="MergeTree">MergeTree</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-muted mb-1">Order By Key</label>
+                                <input
+                                    type="text"
+                                    value={orderBy}
+                                    onChange={(e) => setOrderBy(e.target.value)}
+                                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+                                    placeholder="(col1, col2)"
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-muted mb-1">Select Query</label>

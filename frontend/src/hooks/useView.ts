@@ -20,8 +20,8 @@ export const useCreateView = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ name, query, isMaterialized }: { name: string; query: string; isMaterialized: boolean }) =>
-            viewApi.create(name, query, isMaterialized),
+        mutationFn: ({ name, query, isMaterialized, engine, orderBy }: { name: string; query: string; isMaterialized: boolean; engine?: string; orderBy?: string }) =>
+            viewApi.create(name, query, isMaterialized, engine, orderBy),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['views'] });
         },
@@ -32,8 +32,8 @@ export const useUpdateView = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, name, query, isMaterialized }: { id: string; name: string; query: string; isMaterialized: boolean }) =>
-            viewApi.update(id, name, query, isMaterialized),
+        mutationFn: ({ id, name, query, isMaterialized, engine, orderBy }: { id: string; name: string; query: string; isMaterialized: boolean; engine?: string; orderBy?: string }) =>
+            viewApi.update(id, name, query, isMaterialized, engine, orderBy),
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['view', variables.id] });
             queryClient.invalidateQueries({ queryKey: ['views'] });

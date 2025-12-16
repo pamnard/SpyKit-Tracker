@@ -4,6 +4,9 @@ export type Widget = {
     title: string;
     description?: string;
     query: string;
+    width?: string; // "1/3" | "1/2" | "2/3" | "full"
+    refreshInterval?: number; // seconds
+    data?: any[];
     value?: number;
     timeFrom?: string;
     timeTo?: string;

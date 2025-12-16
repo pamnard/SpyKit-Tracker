@@ -1,5 +1,7 @@
 -- Load JSON library
 local cjson = require "cjson"
+-- Load MaxMind library explicitly
+local mmdb = require "resty.maxminddb"
 
 -- Add CORS headers
 ngx.header["Access-Control-Allow-Origin"] = "*"
@@ -33,17 +35,76 @@ local function write_to_log(filename, data)
     end
 end
 
+-- Helper to safely get GeoIP data
+local function get_geoip_data(ip)
+    local result = {
+        country = "Unknown",
+        country_name = "Unknown",
+        region = "Unknown",
+        city = "Unknown",
+        postal_code = "Unknown",
+        latitude = 0,
+        longitude = 0
+    }
+    
+    -- Initialize MMDB if not already initted
+    if not mmdb.initted() then
+        local ok, err = mmdb.init("/opt/spykit/geoip/GeoLite2-City.mmdb")
+        if not ok then
+            -- Only log error, return empty result to avoid crash
+            -- ngx.log(ngx.ERR, "Failed to init MaxMind DB: ", err)
+            return result
+        end
+    end
+
+    local lookup_res, err = mmdb.lookup(ip)
+    if lookup_res then
+        if lookup_res.country then
+            result.country = lookup_res.country.iso_code or "Unknown"
+            if lookup_res.country.names then 
+                result.country_name = lookup_res.country.names.en or "Unknown" 
+            end
+        end
+        if lookup_res.subdivisions and lookup_res.subdivisions[1] then
+            result.region = lookup_res.subdivisions[1].iso_code or "Unknown"
+        end
+        if lookup_res.city and lookup_res.city.names then
+            result.city = lookup_res.city.names.en or "Unknown"
+        end
+        if lookup_res.postal then
+            result.postal_code = lookup_res.postal.code or "Unknown"
+        end
+        if lookup_res.location then
+            result.latitude = lookup_res.location.latitude or 0
+            result.longitude = lookup_res.location.longitude or 0
+        end
+    end
+    
+    return result
+end
+
 -- Function to enrich a single event
 local function enrich_event(event)
     if type(event) ~= "table" then return end
     
     local headers = ngx.req.get_headers()
-    -- Get TLS fingerprint from header (if provided by Cloudflare Worker)
     local tls_fp = headers["x-tls-fingerprint"]
+    
+    -- Determine IP (Real IP > Forwarded > Remote)
+    local target_ip = ngx.var.remote_addr or "0.0.0.0"
+    if ngx.var.http_x_forwarded_for then
+        local match = string.match(ngx.var.http_x_forwarded_for, "([^,]+)")
+        if match then target_ip = match end
+    elseif ngx.var.http_x_real_ip then
+        target_ip = ngx.var.http_x_real_ip
+    end
+
+    -- Get Geo Data safely
+    local geo = get_geoip_data(target_ip)
     
     event.server = {
         ip = ngx.var.remote_addr,
-        real_ip = ngx.var.http_x_forwarded_for or ngx.var.http_x_real_ip or ngx.var.remote_addr,
+        real_ip = target_ip,
         user_agent = ngx.var.http_user_agent,
         accept_language = ngx.var.http_accept_language,
         accept_encoding = ngx.var.http_accept_encoding,
@@ -54,22 +115,31 @@ local function enrich_event(event)
         -- TLS/JA3 Fingerprint
         tls_fingerprint = tls_fp,
 
-        -- Geolocation: Cloudflare Headers -> MaxMind Fallback
-        country = headers["cf-ipcountry"] or ngx.var.geoip_country_code or "Unknown",
-        -- Cloudflare does not provide full city/region data in free plan headers usually,
-        -- but if they are present (Ent plan or custom worker), we use them.
-        country_name = headers["cf-ipcountry-name"] or ngx.var.geoip_country_name or "Unknown",
-        region = headers["cf-region-code"] or ngx.var.geoip_region or "Unknown",
-        city = headers["cf-ipcity"] or ngx.var.geoip_city or "Unknown",
-        postal_code = headers["cf-postal-code"] or ngx.var.geoip_postal_code or "Unknown",
-        latitude = headers["cf-iplatitude"] or ngx.var.geoip_latitude or 0,
-        longitude = headers["cf-iplongitude"] or ngx.var.geoip_longitude or 0
+        -- Geolocation: Cloudflare Headers (Priority) -> MaxMind (Fallback) -> Unknown
+        country = headers["cf-ipcountry"] or geo.country,
+        country_name = headers["cf-ipcountry-name"] or geo.country_name,
+        region = headers["cf-region-code"] or geo.region,
+        city = headers["cf-ipcity"] or geo.city,
+        postal_code = headers["cf-postal-code"] or geo.postal_code,
+        latitude = headers["cf-iplatitude"] or geo.latitude,
+        longitude = headers["cf-iplongitude"] or geo.longitude
     }
 end
 
 -- Read request body
 ngx.req.read_body()
 local data = ngx.req.get_body_data()
+
+if not data then
+    local datafile = ngx.req.get_body_file()
+    if datafile then
+        local fh, err = io.open(datafile, "r")
+        if fh then
+            data = fh:read("*a")
+            fh:close()
+        end
+    end
+end
 
 if data then
     -- Parse JSON
@@ -78,21 +148,15 @@ if data then
     if success then
         local events_to_process = {}
         
-        -- Normalize input to array
-        -- cjson decodes JSON arrays as Lua tables with integer keys starting from 1
-        -- JSON objects are Lua tables with string keys
+        -- Handle both Array and Object inputs
         if type(decoded_data) == "table" then
-            -- Check if it's an array (has integer index 1) or object
             if decoded_data[1] then
-                -- It's likely an array
                 events_to_process = decoded_data
             else
-                -- It's a single object
                 events_to_process = { decoded_data }
             end
         end
         
-        -- Enrich all events
         for _, event in ipairs(events_to_process) do
             enrich_event(event)
         end
@@ -116,7 +180,6 @@ if data then
         -- Let's unify to "events" prefix since structure is handled inside.
         local log_file = get_log_file_path("events")
         write_to_log(log_file, final_json)
-        
     else
         -- Fallback for bad JSON
         local log_file = get_log_file_path("events_raw")
@@ -125,4 +188,4 @@ if data then
 end
 
 ngx.status = 204
-ngx.exit(204)
+return

@@ -47,7 +47,7 @@ export function CreateWidgetForm({ onCreate, onUpdate, onCancelEdit, initialData
         }
     }, [initialData]);
 
-    const handleChange = (field: keyof Widget, value: string) => {
+    const handleChange = (field: keyof Widget, value: string | number) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -144,8 +144,35 @@ export function CreateWidgetForm({ onCreate, onUpdate, onCancelEdit, initialData
                         value={form.type}
                         onChange={(e) => handleChange('type', e.target.value)}
                     >
-                        <option value="stat">stat</option>
+                        <option value="stat">Stat (Metric)</option>
+                        <option value="bar">Bar Chart</option>
+                        <option value="line">Line Chart</option>
                     </select>
+                </label>
+                <label className="text-sm text-muted">
+                    Width
+                    <select
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"
+                        value={form.width || ''}
+                        onChange={(e) => handleChange('width', e.target.value)}
+                    >
+                        <option value="">Default (1/3)</option>
+                        <option value="1/3">1/3 Width</option>
+                        <option value="1/2">1/2 Width</option>
+                        <option value="2/3">2/3 Width</option>
+                        <option value="full">Full Width</option>
+                    </select>
+                </label>
+                <label className="text-sm text-muted">
+                    Auto Refresh (sec)
+                    <input
+                        type="number"
+                        min="0"
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"
+                        value={form.refreshInterval || ''}
+                        onChange={(e) => handleChange('refreshInterval', e.target.value ? parseInt(e.target.value) : 0)}
+                        placeholder="0 (Disabled)"
+                    />
                 </label>
                 <label className="text-sm text-muted sm:col-span-2">
                     Description (optional)

@@ -18,6 +18,7 @@
         "react-dom": "^18.3.1",
         "react-router-dom": "^6.26.2",
         "react-syntax-highlighter": "^16.1.0",
+        "recharts": "^3.6.0",
         "sql-formatter": "^15.6.11"
     },
     "devDependencies": {

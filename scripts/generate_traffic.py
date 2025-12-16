@@ -6,10 +6,33 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # Конфигурация
-TARGET_URL = "http://localhost:8081/track"
-THREADS = 5  # Количество одновременных "пользователей"
-DELAY_MIN = 0.1
-DELAY_MAX = 2.0
+try:
+    settings_resp = requests.get("http://localhost:3000/api/settings")
+    settings = settings_resp.json()
+    endpoint = settings.get("endpoint", "/track")
+    TARGET_URL = f"http://localhost:8081{endpoint}"
+    print(f"✅ Loaded settings: endpoint={endpoint}")
+except Exception as e:
+    print(f"⚠️ Failed to load settings from backend: {e}. Using default.")
+    TARGET_URL = "http://localhost:8081/track"
+
+THREADS = 500  # Увеличиваем кол-во потоков для 10k RPS
+DELAY_MIN = 0.0
+DELAY_MAX = 0.0  # Без задержек
+
+# Глобальный счетчик для RPS
+import threading
+request_count = 0
+count_lock = threading.Lock()
+
+def monitor_rps():
+    global request_count
+    while True:
+        time.sleep(1)
+        with count_lock:
+            current = request_count
+            request_count = 0
+        print(f"🔥 Current RPS: {current}")
 
 # Данные для генерации
 PAGES = [
@@ -53,9 +76,15 @@ def get_random_user():
 
 def simulate_user_session():
     user = get_random_user()
-    session_length = random.randint(1, 15)
+    # Используем сессию для keep-alive соединений = выше скорость
+    session = requests.Session()
+    session.headers.update({"User-Agent": user["ua"], "Content-Type": "application/json"})
+    
+    session_length = random.randint(5, 50) # Длиннее сессии = меньше overhead на старт
 
-    print(f"🚀 New session started: {user['uid'][:8]} ({session_length} events)")
+    # print(f"🚀 New session: {user['uid'][:8]}") # Меньше логов в консоль
+
+    global request_count
 
     for _ in range(session_length):
         event_type = random.choices(EVENTS, weights=WEIGHTS, k=1)[0]
@@ -73,36 +102,39 @@ def simulate_user_session():
             "lang": user["lang"],
         }
 
-        # Для событий покупки добавляем сумму
         if event_type == "purchase":
             payload["value"] = random.randint(10, 500)
             payload["currency"] = "USD"
 
-        headers = {"User-Agent": user["ua"], "Content-Type": "application/json"}
-
         try:
-            resp = requests.post(TARGET_URL, json=payload, headers=headers, timeout=5)
+            resp = session.post(TARGET_URL, json=payload, timeout=5)
             status = resp.status_code
             if status not in [200, 204]:
                 print(f"⚠️ Error {status}: {resp.text}")
+            
+            with count_lock:
+                request_count += 1
+                
         except Exception as e:
             print(f"❌ Connection failed: {e}")
             break
 
         time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
 
-    print(f"🏁 Session finished: {user['uid'][:8]}")
-
 
 def run_load_test():
-    print(f"🔥 Starting load test on {TARGET_URL}")
+    print(f"🔥 Starting HIGH LOAD test on {TARGET_URL} (~500+ RPS target)")
+    print(f"Threads: {THREADS}, Delays: {DELAY_MIN}-{DELAY_MAX}s")
     print(f"Press Ctrl+C to stop")
+
+    # Запускаем мониторинг RPS в отдельном потоке
+    threading.Thread(target=monitor_rps, daemon=True).start()
 
     with ThreadPoolExecutor(max_workers=THREADS) as executor:
         while True:
             # Запускаем новую сессию, если есть свободные слоты
             executor.submit(simulate_user_session)
-            time.sleep(random.uniform(0.5, 2.0))
+            # time.sleep(0.01) # Убираем sleep главного потока для макс скорости
 
 
 if __name__ == "__main__":

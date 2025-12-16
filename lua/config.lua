@@ -16,7 +16,12 @@ function _M.get_settings()
     if res.status == 200 then
         -- Cache for 10 seconds
         cache:set("pixel_settings", res.body, 10)
-        return cjson.decode(res.body)
+        local success, settings = pcall(cjson.decode, res.body)
+        if not success then
+            ngx.log(ngx.ERR, "Failed to decode settings JSON: " .. tostring(settings))
+            return nil
+        end
+        return settings
     else
         ngx.log(ngx.ERR, "Failed to fetch settings: " .. res.status)
         return nil

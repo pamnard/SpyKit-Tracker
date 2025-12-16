@@ -5,10 +5,11 @@ local DEFAULT_SETTINGS = {
     endpoint = "/track"
 }
 
--- Get settings (or default on error)
-local success, settings = pcall(config_loader.get_settings)
-if not success or not settings then
-    settings = DEFAULT_SETTINGS
+-- Get settings
+local settings = config_loader.get_settings()
+if not settings then
+    ngx.log(ngx.ERR, "Failed to load pixel settings")
+    return ngx.exit(503)
 end
 
 local uri = ngx.var.uri
@@ -31,7 +32,12 @@ end
 
 -- 2. Event tracking
 if uri == settings.endpoint then
-    return dofile("/opt/spykit/lua/pixel.lua")
+    local f, err = loadfile("/opt/spykit/lua/pixel.lua")
+    if not f then
+        ngx.log(ngx.ERR, "Failed to load pixel script: ", err)
+        return ngx.exit(500)
+    end
+    return f()
 end
 
 -- 3. 404 for anything else

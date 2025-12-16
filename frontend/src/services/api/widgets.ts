@@ -9,7 +9,7 @@ export const widgetApi = {
         if (range?.from) params.set('from', range.from);
         if (range?.to) params.set('to', range.to);
         const qs = params.toString();
-        const res = await apiFetch<{ value: number; from: string; to: string }>(
+        const res = await apiFetch<{ value?: number; data?: any[]; from: string; to: string }>(
             `/api/widgets/${id}${qs ? `?${qs}` : ''}`,
         );
         return res;
