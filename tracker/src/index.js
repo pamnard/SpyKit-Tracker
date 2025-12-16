@@ -75,8 +75,12 @@ class SpyPixel {
      * @param {string} eventName Name of the event
      * @param {Object} data Custom event data
      */
-    track(eventName, data = {}) {
+    async track(eventName, data = {}) {
         if (!this.transport) return; // Wait for config
+
+        if (this.device) {
+            await this.device.ready();
+        }
 
         const sessionCtx = this.session.getContext();
 

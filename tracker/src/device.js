@@ -7,45 +7,99 @@ export class SpyDevice {
     constructor() {
         this.adBlockActive = null;
         this.checkAdBlock();
-        this.audioFingerprint = null;
-        this.initAudioFingerprint();
+
+        this.fingerprintData = {
+            audio: null,
+            canvas: null,
+            webgl: null
+        };
+
+        this.readyPromise = this.initFingerprints();
+    }
+
+    /**
+     * Waits for heavy calculations to finish (max 1 second).
+     */
+    async ready() {
+        const timeout = new Promise(resolve => setTimeout(resolve, 1000));
+        return Promise.race([this.readyPromise, timeout]);
+    }
+
+    /**
+     * Starts all heavy fingerprinting tasks in parallel.
+     */
+    async initFingerprints() {
+        try {
+            await Promise.all([
+                this.getAudioFingerprint().then(res => this.fingerprintData.audio = res),
+                this.getCanvasFingerprintAsync().then(res => this.fingerprintData.canvas = res),
+                this.getWebGLFingerprintAsync().then(res => this.fingerprintData.webgl = res)
+            ]);
+        } catch (e) {
+            console.error('Fingerprint error:', e);
+        }
     }
 
     /**
      * Collects audio fingerprint asynchronously.
+     * @returns {Promise<string|null>}
      */
-    initAudioFingerprint() {
-        try {
-            const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-            if (!AudioContext) return;
+    getAudioFingerprint() {
+        return new Promise(resolve => {
+            try {
+                const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                if (!AudioContext) return resolve(null);
 
-            const context = new AudioContext(1, 44100, 44100);
-            const oscillator = context.createOscillator();
-            oscillator.type = 'triangle';
-            oscillator.frequency.setValueAtTime(10000, context.currentTime);
+                const context = new AudioContext(1, 44100, 44100);
+                const oscillator = context.createOscillator();
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(10000, context.currentTime);
 
-            const compressor = context.createDynamicsCompressor();
-            [
-                ['threshold', -50],
-                ['knee', 40],
-                ['ratio', 12],
-                ['reduction', -20],
-                ['attack', 0],
-                ['release', 0.25]
-            ].forEach(param => {
-                if (compressor[param[0]] && compressor[param[0]].setValueAtTime) {
-                    compressor[param[0]].setValueAtTime(param[1], context.currentTime);
-                }
-            });
+                const compressor = context.createDynamicsCompressor();
+                [
+                    ['threshold', -50],
+                    ['knee', 40],
+                    ['ratio', 12],
+                    ['reduction', -20],
+                    ['attack', 0],
+                    ['release', 0.25]
+                ].forEach(param => {
+                    if (compressor[param[0]] && compressor[param[0]].setValueAtTime) {
+                        compressor[param[0]].setValueAtTime(param[1], context.currentTime);
+                    }
+                });
 
-            oscillator.connect(compressor);
-            compressor.connect(context.destination);
-            oscillator.start(0);
+                oscillator.connect(compressor);
+                compressor.connect(context.destination);
+                oscillator.start(0);
 
-            context.startRendering().then(buffer => {
-                this.audioFingerprint = Utils.hashString(buffer.getChannelData(0).join(''));
-            }).catch(() => { });
-        } catch (e) { }
+                context.startRendering().then(buffer => {
+                    resolve(Utils.hashString(buffer.getChannelData(0).join('')));
+                }).catch(() => resolve(null));
+            } catch (e) { resolve(null); }
+        });
+    }
+
+    /**
+     * Async wrapper for Canvas fingerprint to avoid UI freeze.
+     */
+    getCanvasFingerprintAsync() {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                resolve(this.getCanvasFingerprint());
+            }, 0);
+        });
+    }
+
+    /**
+     * Async wrapper for WebGL fingerprint to avoid UI freeze.
+     */
+    getWebGLFingerprintAsync() {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                resolve(this.getWebGLFingerprint());
+            }, 0);
+        });
     }
 
     /**
@@ -80,7 +134,11 @@ export class SpyDevice {
             gpuRenderer: this.getGPU(),
             performance: this.getPerformance(),
             connection: this.getConnection(),
-            fingerprint: this.getFingerprintComponents()
+            fingerprint: {
+                canvas: this.fingerprintData.canvas ? Utils.hashString(this.fingerprintData.canvas) : '',
+                audio: this.fingerprintData.audio || '',
+                webgl: this.fingerprintData.webgl ? Utils.hashString(this.fingerprintData.webgl) : ''
+            }
         };
     }
 
@@ -90,9 +148,9 @@ export class SpyDevice {
      */
     getFingerprintComponents() {
         return {
-            canvas: Utils.hashString(this.getCanvasFingerprint() || ''),
-            audio: this.audioFingerprint || '',
-            webgl: Utils.hashString(this.getWebGLFingerprint() || '')
+            canvas: this.fingerprintData.canvas ? Utils.hashString(this.fingerprintData.canvas) : '',
+            audio: this.fingerprintData.audio || '',
+            webgl: this.fingerprintData.webgl ? Utils.hashString(this.fingerprintData.webgl) : ''
         };
     }
 
@@ -241,4 +299,3 @@ export class SpyDevice {
         }
     }
 }
-
