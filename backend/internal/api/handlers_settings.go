@@ -11,7 +11,7 @@ import (
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, http.StatusOK, s.metaStore.Settings)
+		writeJSON(w, http.StatusOK, s.metaStore.GetSettings())
 	case http.MethodPut:
 		var settings meta.PixelSettings
 		if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {

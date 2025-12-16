@@ -102,6 +102,8 @@ type CreateViewRequest struct {
 	Name           string `json:"name"`
 	Query          string `json:"query"`
 	IsMaterialized bool   `json:"is_materialized"`
+	Engine         string `json:"engine,omitempty"`   // e.g. "SummingMergeTree"
+	OrderBy        string `json:"order_by,omitempty"` // e.g. "(timestamp, event_name)"
 }
 
 // handleCreateView creates a new View or MaterializedView in ClickHouse and stores metadata.
@@ -132,12 +134,37 @@ func (s *Server) handleCreateView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	viewType := "VIEW"
+	engineClause := ""
+
 	if req.IsMaterialized {
 		viewType = "MATERIALIZED VIEW"
+
+		// Если указан движок, формируем настройки хранения
+		if req.Engine != "" {
+			// Валидация движка (white-list)
+			validEngines := map[string]bool{
+				"SummingMergeTree":     true,
+				"AggregatingMergeTree": true,
+				"MergeTree":            true,
+			}
+			if !validEngines[req.Engine] {
+				writeJSONError(w, http.StatusBadRequest, "invalid_engine", nil)
+				return
+			}
+
+			// Для этих движков ORDER BY обязателен
+			if req.OrderBy == "" {
+				writeJSONError(w, http.StatusBadRequest, "order_by_required", nil)
+				return
+			}
+
+			// Формируем: ENGINE = SummingMergeTree ORDER BY (col1, col2)
+			engineClause = fmt.Sprintf("ENGINE = %s ORDER BY %s POPULATE", req.Engine, req.OrderBy)
+		}
 	}
 
 	// Construct the DDL
-	query := fmt.Sprintf("CREATE %s %s AS %s", viewType, req.Name, req.Query)
+	query := fmt.Sprintf("CREATE %s %s %s AS %s", viewType, req.Name, engineClause, req.Query)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -158,7 +185,7 @@ func (s *Server) handleCreateView(w http.ResponseWriter, r *http.Request) {
 			dropQuery = fmt.Sprintf("DROP TABLE IF EXISTS %s", req.Name)
 		}
 		_ = s.ch.Exec(ctx, dropQuery)
-		
+
 		writeJSONError(w, http.StatusInternalServerError, "save_meta_failed", err)
 		return
 	}
@@ -189,11 +216,12 @@ func (s *Server) handleListViews(w http.ResponseWriter, r *http.Request) {
 
 	// Create a reverse map for fast lookup: Name -> ID
 	nameToID := make(map[string]string)
-	for _, vm := range s.metaStore.Views {
+	views := s.metaStore.GetViews()
+	for _, vm := range views {
 		nameToID[vm.Name] = vm.ID
 	}
 
-	var views []View
+	var resultViews []View
 	for rows.Next() {
 		var v View
 		if err := rows.Scan(&v.Name, &v.Engine); err != nil {
@@ -211,7 +239,7 @@ func (s *Server) handleListViews(w http.ResponseWriter, r *http.Request) {
 			// Let's create a mapping on the fly? No, that requires write.
 			// Just skipping might hide views created manually.
 			// Let's assume only managed views are relevant, or expose them without ID.
-			continue 
+			continue
 		}
 		views = append(views, v)
 	}
@@ -305,7 +333,7 @@ func (s *Server) handleViewByID(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusNotFound, "old_view_not_found", err)
 			return
 		}
-		
+
 		dropQuery := ""
 		if engine == "View" {
 			dropQuery = fmt.Sprintf("DROP VIEW %s", oldName)
@@ -320,11 +348,37 @@ func (s *Server) handleViewByID(w http.ResponseWriter, r *http.Request) {
 
 		// Create new view
 		viewType := "VIEW"
+		engineClause := ""
+
 		if req.IsMaterialized {
 			viewType = "MATERIALIZED VIEW"
+
+			// Если указан движок, формируем настройки хранения
+			if req.Engine != "" {
+				// Валидация движка (white-list)
+				validEngines := map[string]bool{
+					"SummingMergeTree":     true,
+					"AggregatingMergeTree": true,
+					"MergeTree":            true,
+				}
+				if !validEngines[req.Engine] {
+					writeJSONError(w, http.StatusBadRequest, "invalid_engine", nil)
+					return
+				}
+
+				// Для этих движков ORDER BY обязателен
+				if req.OrderBy == "" {
+					writeJSONError(w, http.StatusBadRequest, "order_by_required", nil)
+					return
+				}
+
+				// Формируем: ENGINE = SummingMergeTree ORDER BY (col1, col2)
+				engineClause = fmt.Sprintf("ENGINE = %s ORDER BY %s POPULATE", req.Engine, req.OrderBy)
+			}
 		}
-		createQuery := fmt.Sprintf("CREATE %s %s AS %s", viewType, req.Name, req.Query)
-		
+
+		createQuery := fmt.Sprintf("CREATE %s %s %s AS %s", viewType, req.Name, engineClause, req.Query)
+
 		if err := s.ch.Exec(ctx, createQuery); err != nil {
 			// Try to restore old view? (Complex, skipping for now as per "MVP")
 			writeJSONError(w, http.StatusInternalServerError, "create_new_failed_old_dropped", err)

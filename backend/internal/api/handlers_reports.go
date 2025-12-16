@@ -12,11 +12,7 @@ import (
 func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		list := make([]meta.Report, 0, len(s.metaStore.Reports))
-		for _, rp := range s.metaStore.Reports {
-			list = append(list, rp)
-		}
-		writeJSON(w, http.StatusOK, list)
+		writeJSON(w, http.StatusOK, s.metaStore.GetReports())
 	case http.MethodPost:
 		var rp meta.Report
 		if err := json.NewDecoder(r.Body).Decode(&rp); err != nil {
@@ -39,14 +35,14 @@ func (s *Server) handleReportByID(w http.ResponseWriter, r *http.Request) {
 	id := filepath.Base(r.URL.Path)
 	switch r.Method {
 	case http.MethodGet:
-		rp, ok := s.metaStore.Reports[id]
+		rp, ok := s.metaStore.GetReport(id)
 		if !ok {
 			writeJSONError(w, http.StatusNotFound, "report_not_found", nil)
 			return
 		}
 		resolved := make([]meta.Widget, 0, len(rp.Widgets))
 		for _, wid := range rp.Widgets {
-			widget, ok := s.metaStore.Widgets[wid]
+			widget, ok := s.metaStore.GetWidget(wid)
 			if !ok {
 				writeJSONError(w, http.StatusInternalServerError, "widget_not_found", nil)
 				return

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -19,13 +20,15 @@ type User struct {
 
 // Widget describes a report widget backed by a query.
 type Widget struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	Query       string `json:"query"`
-	TimeFrom    string `json:"timeFrom,omitempty"`
-	TimeTo      string `json:"timeTo,omitempty"`
+	ID              string `json:"id"`
+	Type            string `json:"type"`
+	Title           string `json:"title"`
+	Description     string `json:"description,omitempty"`
+	Query           string `json:"query"`
+	Width           string `json:"width,omitempty"`            // "1/3", "1/2", "2/3", "full" or empty (default)
+	RefreshInterval int    `json:"refreshInterval,omitempty"`  // in seconds, 0 = no auto refresh
+	TimeFrom        string `json:"timeFrom,omitempty"`
+	TimeTo          string `json:"timeTo,omitempty"`
 }
 
 // Report describes a report layout as list of widget IDs.
@@ -50,6 +53,7 @@ type PixelSettings struct {
 // Store keeps report/widget metadata in a Bolt DB.
 // Data is stored in buckets: widgets, reports, settings, users, views.
 type Store struct {
+	mu       sync.RWMutex
 	db       *bolt.DB
 	Widgets  map[string]Widget
 	Reports  map[string]Report
@@ -205,8 +209,94 @@ func loadViews(db *bolt.DB) map[string]ViewMeta {
 	return out
 }
 
+// GetSettings returns a copy of current settings.
+func (s *Store) GetSettings() PixelSettings {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.Settings
+}
+
+// GetWidgets returns a list of all widgets.
+func (s *Store) GetWidgets() []Widget {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	list := make([]Widget, 0, len(s.Widgets))
+	for _, w := range s.Widgets {
+		list = append(list, w)
+	}
+	return list
+}
+
+// GetWidget returns a widget by ID.
+func (s *Store) GetWidget(id string) (Widget, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	w, ok := s.Widgets[id]
+	return w, ok
+}
+
+// GetReports returns a list of all reports.
+func (s *Store) GetReports() []Report {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	list := make([]Report, 0, len(s.Reports))
+	for _, r := range s.Reports {
+		list = append(list, r)
+	}
+	return list
+}
+
+// GetReport returns a report by ID.
+func (s *Store) GetReport(id string) (Report, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	r, ok := s.Reports[id]
+	return r, ok
+}
+
+// GetUsers returns a list of all users.
+func (s *Store) GetUsers() []User {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	list := make([]User, 0, len(s.Users))
+	for _, u := range s.Users {
+		list = append(list, u)
+	}
+	return list
+}
+
+// GetUser returns a user by username.
+func (s *Store) GetUser(username string) (User, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	u, ok := s.Users[username]
+	return u, ok
+}
+
+// GetViews returns a list of all views.
+func (s *Store) GetViews() []ViewMeta {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	list := make([]ViewMeta, 0, len(s.Views))
+	for _, v := range s.Views {
+		list = append(list, v)
+	}
+	return list
+}
+
+// GetView returns a view by ID.
+func (s *Store) GetView(id string) (ViewMeta, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	v, ok := s.Views[id]
+	return v, ok
+}
+
 // SaveWidget upserts a widget in Bolt and refreshes in-memory cache.
 func (s *Store) SaveWidget(w Widget) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if w.ID == "" {
 		return fmt.Errorf("widget id required")
 	}
@@ -237,6 +327,9 @@ func (s *Store) SaveWidget(w Widget) error {
 
 // DeleteWidget removes a widget.
 func (s *Store) DeleteWidget(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if id == "" {
 		return fmt.Errorf("widget id required")
 	}
@@ -253,6 +346,9 @@ func (s *Store) DeleteWidget(id string) error {
 
 // SaveReport upserts a report. If ID is empty, it generates a new sequence ID.
 func (s *Store) SaveReport(r *Report) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if r.Title == "" {
 		return fmt.Errorf("report title required")
 	}
@@ -285,6 +381,9 @@ func (s *Store) SaveReport(r *Report) error {
 
 // DeleteReport removes a report.
 func (s *Store) DeleteReport(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if id == "" {
 		return fmt.Errorf("report id required")
 	}
@@ -301,6 +400,9 @@ func (s *Store) DeleteReport(id string) error {
 
 // SaveSettings updates pixel settings.
 func (s *Store) SaveSettings(settings PixelSettings) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	payload, err := json.Marshal(settings)
 	if err != nil {
 		return err
@@ -318,6 +420,9 @@ func (s *Store) SaveSettings(settings PixelSettings) error {
 
 // SaveUser upserts a user.
 func (s *Store) SaveUser(u User) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if u.Username == "" {
 		return fmt.Errorf("username required")
 	}
@@ -348,6 +453,9 @@ func (s *Store) SaveUser(u User) error {
 
 // DeleteUser removes a user.
 func (s *Store) DeleteUser(username string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if username == "" {
 		return fmt.Errorf("username required")
 	}
@@ -364,6 +472,9 @@ func (s *Store) DeleteUser(username string) error {
 
 // SaveViewMeta maps a view internal ID to its ClickHouse name.
 func (s *Store) SaveViewMeta(vm *ViewMeta) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if vm.Name == "" {
 		return fmt.Errorf("view name required")
 	}
@@ -389,6 +500,9 @@ func (s *Store) SaveViewMeta(vm *ViewMeta) error {
 
 // DeleteViewMeta removes the view ID mapping.
 func (s *Store) DeleteViewMeta(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if id == "" {
 		return fmt.Errorf("view id required")
 	}
@@ -405,9 +519,11 @@ func (s *Store) DeleteViewMeta(id string) error {
 
 // GetViewNameByID retrieves the ClickHouse table name for a given internal view ID.
 func (s *Store) GetViewNameByID(id string) (string, bool) {
-	vm, ok := s.Views[id]
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	v, ok := s.Views[id]
 	if !ok {
 		return "", false
 	}
-	return vm.Name, true
+	return v.Name, true
 }

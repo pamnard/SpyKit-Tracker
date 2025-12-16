@@ -71,7 +71,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	*/
 	// #endregion
 
-	user, ok := s.metaStore.Users[creds.Username]
+	user, ok := s.metaStore.GetUser(creds.Username)
 	if !ok {
 		// Timing attack mitigation (dummy check)
 		bcrypt.CompareHashAndPassword([]byte("$2a$10$dummy..."), []byte(creds.Password))
@@ -114,8 +114,9 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		// List users (without hashes)
-		list := make([]meta.User, 0, len(s.metaStore.Users))
-		for _, u := range s.metaStore.Users {
+		users := s.metaStore.GetUsers()
+		list := make([]meta.User, 0, len(users))
+		for _, u := range users {
 			u.PasswordHash = "" // Safety first
 			list = append(list, u)
 		}
@@ -133,7 +134,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check if exists
-		if _, exists := s.metaStore.Users[u.Username]; exists {
+		if _, exists := s.metaStore.GetUser(u.Username); exists {
 			writeJSONError(w, http.StatusConflict, "user_exists", nil)
 			return
 		}
@@ -209,7 +210,7 @@ func (s *Server) RequireAdmin(next http.Handler) http.Handler {
 
 // EnsureAdminUser creates an initial admin if none exist.
 func (s *Server) EnsureAdminUser() {
-	if u, ok := s.metaStore.Users["admin"]; ok && len(u.PasswordHash) > 0 {
+	if u, ok := s.metaStore.GetUser("admin"); ok && len(u.PasswordHash) > 0 {
 		return
 	}
 
