@@ -17,6 +17,7 @@ type FingerprintData struct {
 	CanvasHash string
 	AudioHash  string
 	WebGLHash  string
+	TLSHash    string
 }
 
 type FingerprintService struct {
@@ -75,9 +76,12 @@ func (s *FingerprintService) Identify(rawEvent map[string]interface{}) (string, 
 	canvasHash := toString(fpData["canvas"])
 	audioHash := toString(fpData["audio"])
 	webglHash := toString(fpData["webgl"])
+
+	// Extract TLS Fingerprint (from server block)
+	tlsHash := getNestedString(rawEvent, "server", "tls_fingerprint")
 	
 	// We need at least one heavy signal
-	if canvasHash == "" && audioHash == "" && webglHash == "" {
+	if canvasHash == "" && audioHash == "" && webglHash == "" && tlsHash == "" {
 		return "", false
 	}
 
@@ -85,6 +89,7 @@ func (s *FingerprintService) Identify(rawEvent map[string]interface{}) (string, 
 		CanvasHash: canvasHash,
 		AudioHash:  audioHash,
 		WebGLHash:  webglHash,
+		TLSHash:    tlsHash,
 	}
 
 	currentVisitorID := toString(rawEvent["visitor_id"])
@@ -128,6 +133,10 @@ func (s *FingerprintService) Identify(rawEvent map[string]interface{}) (string, 
 				}
 				// If WebGL matches AND it's not empty -> Match
 				if currentFP.WebGLHash != "" && cand.Fingerprint.WebGLHash == currentFP.WebGLHash {
+					foundID = cand.VisitorID
+				}
+				// If TLS matches AND it's not empty -> Match (Strong signal within same IP/Bucket)
+				if currentFP.TLSHash != "" && cand.Fingerprint.TLSHash == currentFP.TLSHash {
 					foundID = cand.VisitorID
 				}
 			}

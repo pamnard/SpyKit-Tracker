@@ -37,6 +37,10 @@ end
 local function enrich_event(event)
     if type(event) ~= "table" then return end
     
+    local headers = ngx.req.get_headers()
+    -- Get TLS fingerprint from header (if provided by Cloudflare Worker)
+    local tls_fp = headers["x-tls-fingerprint"]
+    
     event.server = {
         ip = ngx.var.remote_addr,
         real_ip = ngx.var.http_x_forwarded_for or ngx.var.http_x_real_ip or ngx.var.remote_addr,
@@ -46,14 +50,20 @@ local function enrich_event(event)
         host = ngx.var.host,
         request_time = ngx.var.request_time,
         timestamp_server = ngx.time(),
-        -- Geolocation via GeoIP
-        country = ngx.var.geoip_country_code or "Unknown",
-        country_name = ngx.var.geoip_country_name or "Unknown",
-        region = ngx.var.geoip_region or "Unknown",
-        city = ngx.var.geoip_city or "Unknown",
-        postal_code = ngx.var.geoip_postal_code or "Unknown",
-        latitude = ngx.var.geoip_latitude or 0,
-        longitude = ngx.var.geoip_longitude or 0
+        
+        -- TLS/JA3 Fingerprint
+        tls_fingerprint = tls_fp,
+
+        -- Geolocation: Cloudflare Headers -> MaxMind Fallback
+        country = headers["cf-ipcountry"] or ngx.var.geoip_country_code or "Unknown",
+        -- Cloudflare does not provide full city/region data in free plan headers usually,
+        -- but if they are present (Ent plan or custom worker), we use them.
+        country_name = headers["cf-ipcountry-name"] or ngx.var.geoip_country_name or "Unknown",
+        region = headers["cf-region-code"] or ngx.var.geoip_region or "Unknown",
+        city = headers["cf-ipcity"] or ngx.var.geoip_city or "Unknown",
+        postal_code = headers["cf-postal-code"] or ngx.var.geoip_postal_code or "Unknown",
+        latitude = headers["cf-iplatitude"] or ngx.var.geoip_latitude or 0,
+        longitude = headers["cf-iplongitude"] or ngx.var.geoip_longitude or 0
     }
 end
 
