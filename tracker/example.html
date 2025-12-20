@@ -5,21 +5,19 @@
     <meta charset="UTF-8">
     <title>Тестовая страница с пикселем</title>
     <script>
-        var _spy = window._spy = window._spy || [];
+        var _pixel = window._pixel = window._pixel || [];
 
         // Configuration
-        _spy.push(['config', 'baseUrl', 'https://localhost:8080']);
-        _spy.push(['config', 'namespace', 'spyKit_']); // namespace for localStorage
-        _spy.push(['config', 'domains', ['localhost', 'example.com', 'shop.example.com']]);
-        _spy.push(['config', 'batchSize', 5]);
-        _spy.push(['config', 'batchTimeout', 10]);
-        _spy.push(['config', 'sessionTimeout', 30]);
-        _spy.push(['config', 'maxFailedEvents', 100]); // higher limit for failed events
-        _spy.push(['config', 'retryInterval', 30000]); // check more often (30 sec)
-        _spy.push(['config', 'domainSync', true]); // enable cross-domain synchronization
+        _pixel.push(['config', 'baseUrl', 'https://localhost:8080']);
+        _pixel.push(['config', 'namespace', 'pixel_']); // namespace for localStorage
+        _pixel.push(['config', 'batchSize', 5]);
+        _pixel.push(['config', 'batchTimeout', 10]);
+        _pixel.push(['config', 'sessionTimeout', 30]);
+        _pixel.push(['config', 'maxFailedEvents', 100]); // higher limit for failed events
+        _pixel.push(['config', 'retryInterval', 30000]); // check more often (30 sec)
 
         // Set traffic attribution parameters (from CRM or other source)
-        _spy.push(['config', 'traffic', {
+        _pixel.push(['config', 'traffic', {
             source: 'google',
             channel: 'cpc',
             campaign: 'summer2024',
@@ -28,11 +26,11 @@
         }]);
 
         // Disable individual events (all enabled by default)
-        // _spy.push(['config', 'scrollTracking', false]);
-        // _spy.push(['config', 'clickTracking', false]);
-        // _spy.push(['config', 'formTracking', false]);
-        // _spy.push(['config', 'downloadTracking', false]);
-        // _spy.push(['config', 'visibilityTracking', false]);
+        // _pixel.push(['config', 'scrollTracking', false]);
+        // _pixel.push(['config', 'clickTracking', false]);
+        // _pixel.push(['config', 'formTracking', false]);
+        // _pixel.push(['config', 'downloadTracking', false]);
+        // _pixel.push(['config', 'visibilityTracking', false]);
 
         (function () {
             var js = document.createElement('script');
@@ -46,7 +44,7 @@
 
 <body>
     <h1>Example page with analytics pixel</h1>
-    <button onclick="_spy.push(['track', 'click', {button: 'test'}])">Test button</button>
+    <button onclick="_pixel.push(['track', 'click', {button: 'test'}])">Test button</button>
     <a href="https://google.com">External link</a>
     <a href="https://shop.example.com/products">Internal link (other domain)</a>
     <a href="/contact.pdf">Download PDF</a>
@@ -59,15 +57,15 @@
     <script>
         // Usage examples
         function testDebug() {
-            _spy.push(['debug', true]); // enable debug
+            _pixel.push(['debug', true]); // enable debug
         }
 
         function testSetUserId() {
-            _spy.push(['setUserId', 'user_123']); // set CRM ID
+            _pixel.push(['setUserId', 'user_123']); // set CRM ID
         }
 
         function testCustomEvent() {
-            _spy.push(['track', 'purchase', { value: 100, currency: 'USD' }]);
+            _pixel.push(['track', 'purchase', { value: 100, currency: 'USD' }]);
         }
 
     </script>

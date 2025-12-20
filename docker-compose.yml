@@ -2,16 +2,16 @@ services:
   # --- 0. Init Permissions (Fix logs volume rights) ---
   init-perms:
     image: alpine:latest
-    command: sh -c "mkdir -p /var/log/spykit && chmod 777 /var/log/spykit"
+    command: sh -c "mkdir -p /var/log/pixel && chmod 777 /var/log/pixel"
     volumes:
-      - logs_volume:/var/log/spykit
+      - logs_volume:/var/log/pixel
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 0.5. Pixel Builder ---
   pixel-builder:
     image: node:18-alpine
-    container_name: spykit_pixel_builder
+    container_name: pixel_pixel_builder
     volumes:
       - ./tracker:/src
       - pixel_dist:/dist
@@ -19,14 +19,14 @@ services:
     # Build src/index.js -> /dist/pixel.js using Rollup + Terser
     command: sh -c "npm install -g rollup terser && rollup src/index.js --format iife --name SpyPixel --file dist/pixel.unminified.js && terser dist/pixel.unminified.js -c -m -o /dist/pixel.js"
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 1. Pixel (Nginx + Lua) ---
   pixel:
     build:
       context: .
       dockerfile: ops/pixel.Dockerfile
-    container_name: spykit_pixel
+    container_name: pixel_pixel
     restart: always
     ports:
       - "${PIXEL_PORT}:80" # Expose pixel
@@ -37,10 +37,10 @@ services:
       - PIXEL_FILENAME=pixel.js
     volumes:
       - ./config/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
-      - ./lua:/opt/spykit/lua:ro
-      - pixel_dist:/opt/spykit/dist:ro # Read built pixel from volume
-      - logs_volume:/var/log/spykit
-      - geoip_data:/opt/spykit/geoip:ro
+      - ./lua:/opt/pixel/lua:ro
+      - pixel_dist:/opt/pixel/dist:ro # Read built pixel from volume
+      - logs_volume:/var/log/pixel
+      - geoip_data:/opt/pixel/geoip:ro
     depends_on:
       init-perms:
         condition: service_completed_successfully
@@ -49,12 +49,12 @@ services:
       geoip-updater:
         condition: service_started
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 1.5 GeoIP Updater ---
   geoip-updater:
     image: maxmindinc/geoipupdate
-    container_name: spykit_geoip_updater
+    container_name: pixel_geoip_updater
     restart: always
     environment:
       - GEOIPUPDATE_ACCOUNT_ID=${MAXMIND_ACCOUNT_ID}
@@ -64,18 +64,18 @@ services:
     volumes:
       - geoip_data:/usr/share/GeoIP
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 2. Data Pipeline (Vector) ---
   vector:
     image: timberio/vector:0.34.1-alpine
-    container_name: spykit_vector
+    container_name: pixel_vector
     restart: always
     environment:
       - VECTOR_CONFIG=/etc/vector/vector.toml
     volumes:
       - ./config/vector/vector.toml:/etc/vector/vector.toml:ro
-      - logs_volume:/var/log/spykit:ro # Read logs from shared volume
+      - logs_volume:/var/log/pixel:ro # Read logs from shared volume
       - vector_data:/var/lib/vector
     depends_on:
       processor:
@@ -83,14 +83,14 @@ services:
       init-perms:
         condition: service_completed_successfully
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 2.5. Processor (Go) ---
   processor:
     build:
       context: ./backend
       dockerfile: processor.Dockerfile
-    container_name: spykit_processor
+    container_name: pixel_processor
     restart: always
     environment:
       - PROCESSOR_PORT=8080
@@ -100,12 +100,12 @@ services:
     depends_on:
       - clickhouse
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 3. Analytics DB (ClickHouse) ---
   clickhouse:
     image: clickhouse/clickhouse-server:latest
-    container_name: spykit_clickhouse
+    container_name: pixel_clickhouse
     restart: always
     ports:
       - "${CLICKHOUSE_HTTP_PORT}:8123" # HTTP port
@@ -123,14 +123,14 @@ services:
         soft: 262144
         hard: 262144
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 5. Backend API (Go) ---
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: spykit_backend
+    container_name: pixel_backend
     restart: always
     ports:
       - "${BACKEND_PORT}:3000"
@@ -149,36 +149,36 @@ services:
     depends_on:
       - clickhouse
     networks:
-      - spykit_net
+      - pixel_net
 
   # --- 6. Frontend (React) ---
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: spykit_frontend
+    container_name: pixel_frontend
     restart: always
     ports:
       - "${FRONT_HOST_PORT}:${FRONT_CONTAINER_PORT}"
     depends_on:
       - backend
     networks:
-      - spykit_net
+      - pixel_net
 
 networks:
-  spykit_net:
+  pixel_net:
     driver: bridge
 
 volumes:
   logs_volume:
-    name: spykit_logs_volume
+    name: pixel_logs_volume
   clickhouse_data:
-    name: spykit_clickhouse_data
+    name: pixel_clickhouse_data
   vector_data:
-    name: spykit_vector_data
+    name: pixel_vector_data
   pixel_dist:
-    name: spykit_pixel_dist
+    name: pixel_pixel_dist
   geoip_data:
-    name: spykit_geoip_data
+    name: pixel_geoip_data
   backend_data:
-    name: spykit_backend_data
+    name: pixel_backend_data

@@ -35,7 +35,7 @@ export const Utils = {
      * @param {...any} args Arguments to log
      */
     log: (debug, ...args) => {
-        if (debug) console.log('[SpyKit]', ...args);
+        if (debug) console.log('[Pixel]', ...args);
     },
 
     /**
@@ -43,7 +43,7 @@ export const Utils = {
      * @param {...any} args Error arguments
      */
     error: (...args) => {
-        console.error('[SpyKit]', ...args);
+        console.error('[Pixel]', ...args);
     }
 };
 

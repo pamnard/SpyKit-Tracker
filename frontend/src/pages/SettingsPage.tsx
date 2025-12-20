@@ -158,26 +158,24 @@ export function SettingsPage() {
                         language="javascript"
                         className="border border-border bg-surface text-xs"
                         code={`<script>
-    var _spy = window._spy = window._spy || [];
+    var _pixel = window._pixel = window._pixel || [];
 
     // Configuration
-    _spy.push(['config', 'baseUrl', '/your-proxy-path']); // Relative path to your proxy (recommended) or absolute URL
-    _spy.push(['config', 'endpoint', '${settings.endpoint}']); // configured endpoint
-    _spy.push(['config', 'namespace', 'spyKit_']);
-    _spy.push(['config', 'domains', ['localhost', 'example.com', 'shop.example.com']]);
-    _spy.push(['config', 'batchSize', 5]);
-    _spy.push(['config', 'batchTimeout', 10]);
-    _spy.push(['config', 'sessionTimeout', 30]);
-    _spy.push(['config', 'maxFailedEvents', 100]); // higher limit for failed events
-    _spy.push(['config', 'retryInterval', 30000]); // check more often (30 sec)
-    _spy.push(['config', 'domainSync', true]); // enable cross-domain synchronization
+    _pixel.push(['config', 'baseUrl', '/your-proxy-path']); // Relative path to your proxy (recommended) or absolute URL
+    _pixel.push(['config', 'endpoint', '${settings.endpoint}']); // configured endpoint
+    _pixel.push(['config', 'namespace', 'pixel_']);
+    _pixel.push(['config', 'batchSize', 5]);
+    _pixel.push(['config', 'batchTimeout', 10]);
+    _pixel.push(['config', 'sessionTimeout', 30]);
+    _pixel.push(['config', 'maxFailedEvents', 100]); // higher limit for failed events
+    _pixel.push(['config', 'retryInterval', 30000]); // check more often (30 sec)
 
     // Disable individual events (all enabled by default)
-    // _spy.push(['config', 'scrollTracking', false]);
-    // _spy.push(['config', 'clickTracking', false]);
-    // _spy.push(['config', 'formTracking', false]);
-    // _spy.push(['config', 'downloadTracking', false]);
-    // _spy.push(['config', 'visibilityTracking', false]);
+    // _pixel.push(['config', 'scrollTracking', false]);
+    // _pixel.push(['config', 'clickTracking', false]);
+    // _pixel.push(['config', 'formTracking', false]);
+    // _pixel.push(['config', 'downloadTracking', false]);
+    // _pixel.push(['config', 'visibilityTracking', false]);
 
     (function () {
         var js = document.createElement('script');

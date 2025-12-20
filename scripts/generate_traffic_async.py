@@ -49,7 +49,7 @@ def get_random_payload():
         "sid": str(uuid.uuid4()),
         "t": int(time.time() * 1000),
         "e": random.choices(EVENTS, weights=WEIGHTS, k=1)[0],
-        "url": f"https://spykit.example.com{random.choice(PAGES)}",
+        "url": f"https://pixel.example.com{random.choice(PAGES)}",
         "ref": random.choice(REFERRERS),
         "p": random.choice(PAGES),
         "vp": f"{random.randint(320, 1920)}x{random.randint(600, 1080)}",

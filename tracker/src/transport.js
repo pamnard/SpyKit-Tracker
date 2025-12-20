@@ -3,7 +3,7 @@ import { Utils } from './utils.js';
 /**
  * Handles data transport, batching, and retries.
  */
-export class SpyTransport {
+export class PixelTransport {
     /**
      * @param {SpyConfig} config Config instance
      * @param {SpyStorage} storage Storage instance

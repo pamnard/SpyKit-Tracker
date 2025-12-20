@@ -95,7 +95,7 @@ def simulate_user_session():
             "session_id": user["sid"],
             "timestamp": time.time(),
             "event_name": event_type,
-            "url": f"https://spykit.example.com{current_page}",
+            "url": f"https://pixel.example.com{current_page}",
             "referrer": random.choice(REFERRERS),
             "data": {
                 "page": current_page,

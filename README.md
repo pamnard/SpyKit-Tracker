@@ -1,4 +1,4 @@
-# SpyKit
+# Pixel
 
 > **⚠️ Status: Active Development (Beta)**
 >
@@ -6,9 +6,9 @@
 >
 > We welcome feedback and contributions!
 
-**SpyKit** is a high-performance, self-hosted web analytics system built for high-load projects.
+**Pixel** is a high-performance, self-hosted web analytics system built for high-load projects.
 
-Unlike SaaS solutions, SpyKit is deployed on your own infrastructure (Docker/K8s), giving you full control over data and no limits on event volume.
+Unlike SaaS solutions, Pixel is deployed on your own infrastructure (Docker/K8s), giving you full control over data and no limits on event volume.
 
 ## 🚀 Key Features
 
@@ -22,17 +22,16 @@ Unlike SaaS solutions, SpyKit is deployed on your own infrastructure (Docker/K8s
   - **No PII by default:** The tracker actively prevents storing emails as User IDs.
   - **IP Anonymization:** IP addresses are salted and hashed on the edge (Nginx) before storage. We store only MD5 hashes (`ip_hash`) for uniqueness checks, not raw IPs.
 - **Lightweight Tracker:** JS tracker weighs only **~2KB** (gzipped) and does not block rendering.
-- **Cross-Domain Tracking:** Supports user synchronization across different domains.
 - **AdBlock Bypass:** Works in a First-party context (via Nginx proxy on your main domain), bypassing most ad blockers and ITP.
 - **Dashboard:** Built-in admin panel (React + Go) for viewing reports, creating widgets, and managing users.
 
 ## 💡 Advanced Tracker Capabilities
 
-SpyKit's tracker (`pixel.js`) is designed to capture **more data** with **higher reliability** than standard solutions:
+Pixel's tracker (`pixel.js`) is designed to capture **more data** with **higher reliability** than standard solutions:
 
 ### 🛡️ Guaranteed Data Delivery (Offline Mode)
 
-Unlike standard analytics solutions, SpyKit ensures no data is lost even on unstable networks:
+Unlike standard analytics solutions, Pixel ensures no data is lost even on unstable networks:
 
 - **LocalStorage Backup:** Events are stored locally if the network is down or the server is unreachable.
 - **Smart Retries:** Automatically retries failed requests with exponential backoff (up to 24 hours).
@@ -54,12 +53,11 @@ Out-of-the-box tracking without coding:
 
 - Generates a stable `visitor_id` based on anonymous device signals.
 - **Device Matching:** Uses Canvas, WebGL, and AudioContext signals to re-identify visitors even if cookies are lost or they switch from WebView to Browser.
-- **Session Linking:** Automatically links sessions across different domains or apps within a 15-minute window.
-- Syncs IDs across subdomains and (optionally) cross-domains via image pixel.
+- **Session Linking:** Automatically links sessions across different domains or apps within a 15-minute window (via server-side fingerprint matching).
 
 ## 🏗 Architecture
 
-SpyKit follows a classic Big Data Pipeline architecture:
+Pixel follows a classic Big Data Pipeline architecture:
 
 ```mermaid
 graph LR
@@ -85,8 +83,8 @@ For local development or VPS testing:
 1.  **Clone the repository:**
     
     ```bash
-    git clone https://github.com/pamnard/SpyKit-Tracker.git
-    cd SpyKit-Tracker
+    git clone https://github.com/pamnard/pixel.git
+    cd pixel
     ```
 
 2.  **Configure environment:**
@@ -138,18 +136,18 @@ For local development or VPS testing:
 ## 📦 Website Integration
 
 Add this code to your website's `<head>`.
-**Note:** For production usage, it is recommended to set up a proxy (e.g., Nginx) on your main domain to forward requests to SpyKit (to avoid AdBlock issues).
+**Note:** For production usage, it is recommended to set up a proxy (e.g., Nginx) on your main domain to forward requests to Pixel (to avoid AdBlock issues).
 
 ```html
 <script>
-  var _spy = (window._spy = window._spy || []);
+  var _pixel = (window._pixel = window._pixel || []);
 
   // 1. Basic Configuration
-  _spy.push(["config", "baseUrl", "/telemetry"]); // Proxy path (First-party)
-  // _spy.push(['config', 'endpoint', '/track']); // Customizable endpoint path
+  _pixel.push(["config", "baseUrl", "/telemetry"]); // Proxy path (First-party)
+  // _pixel.push(['config', 'endpoint', '/track']); // Customizable endpoint path
 
   // 2. Start Tracking
-  _spy.push(["track", "pageview"]);
+  _pixel.push(["track", "pageview"]);
 
   // 3. Load the Script
   (function () {
@@ -166,14 +164,14 @@ Add this code to your website's `<head>`.
 
 ```javascript
 // Track custom event
-_spy.push(["track", "purchase", { amount: 100, currency: "USD" }]);
+_pixel.push(["track", "purchase", { amount: 100, currency: "USD" }]);
 
 // Set User ID (if user is logged in)
-_spy.push(["setUserId", "user_123"]);
+_pixel.push(["setUserId", "user_123"]);
 
 // Configuration
-_spy.push(["config", "scrollTracking", true]); // Toggle scroll tracking (default: true)
-_spy.push(["config", "clickTracking", true]); // Toggle click tracking (default: true)
+_pixel.push(["config", "scrollTracking", true]); // Toggle scroll tracking (default: true)
+_pixel.push(["config", "clickTracking", true]); // Toggle click tracking (default: true)
 ```
 
 ## ⚙️ Backend Configuration
@@ -213,4 +211,4 @@ We welcome Pull Requests! Please ensure you have tested your changes locally.
 
 ## 📄 License
 
-MIT. You can use SpyKit in commercial projects for free.
+MIT. You can use Pixel in commercial projects for free.

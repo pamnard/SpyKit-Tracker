@@ -17,7 +17,7 @@ local uri = ngx.var.uri
 -- 1. Serve JS file
 if uri == "/" .. settings.fileName then
     ngx.header.content_type = "application/javascript"
-    local f = io.open("/opt/spykit/dist/pixel.js", "rb")
+    local f = io.open("/opt/pixel/dist/pixel.js", "rb")
     if f then
         local content = f:read("*all")
         f:close()
@@ -32,7 +32,7 @@ end
 
 -- 2. Event tracking
 if uri == settings.endpoint then
-    local f, err = loadfile("/opt/spykit/lua/pixel.lua")
+    local f, err = loadfile("/opt/pixel/lua/pixel.lua")
     if not f then
         ngx.log(ngx.ERR, "Failed to load pixel script: ", err)
         return ngx.exit(500)

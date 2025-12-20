@@ -3,7 +3,7 @@ import { Utils } from './utils.js';
 /**
  * Manages pixel configuration settings.
  */
-export class SpyConfig {
+export class PixelConfig {
     constructor() {
         /** @type {Object} Configuration values storage */
         this.values = {
@@ -22,12 +22,8 @@ export class SpyConfig {
             downloadTracking: true,
             visibilityTracking: true,
 
-            // Multi-domain
-            domains: [],
-            domainSync: false,
-
             // Internals
-            namespace: 'spyKit_',
+            namespace: 'pixel_',
             maxFailedEvents: 50,
             failedEventsTTL: 86400000, // 24h
             retryInterval: 60000,
@@ -71,7 +67,6 @@ export class SpyConfig {
             endpoint: v => typeof v === 'string' && v.startsWith('/'),
             batchSize: v => typeof v === 'number' && v >= 1,
             debug: v => typeof v === 'boolean',
-            domains: v => Array.isArray(v),
             traffic: v => typeof v === 'object' && v !== null && !Array.isArray(v)
         };
 

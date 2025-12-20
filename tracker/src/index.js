@@ -1,18 +1,18 @@
 import { Utils } from './utils.js';
-import { SpyConfig } from './config.js';
-import { SpyStorage } from './storage.js';
-import { SpyDevice } from './device.js';
-import { SpySession } from './session.js';
-import { SpyTransport } from './transport.js';
-import { SpyAutoEvents } from './auto-events.js';
+import { PixelConfig } from './config.js';
+import { PixelStorage } from './storage.js';
+import { PixelDevice } from './device.js';
+import { PixelSession } from './session.js';
+import { PixelTransport } from './transport.js';
+import { PixelAutoEvents } from './auto-events.js';
 
 /**
- * Main controller for SpyKit Pixel.
+ * Main controller for Pixel.
  */
-class SpyPixel {
+class Pixel {
     constructor() {
-        this.config = new SpyConfig();
-        this.storage = new SpyStorage(this.config);
+        this.config = new PixelConfig();
+        this.storage = new PixelStorage(this.config);
         this.session = null; // initialized after config
         this.device = null;  // initialized in init
         this.transport = null;
@@ -26,19 +26,14 @@ class SpyPixel {
      */
     init() {
         // Init device first to support fingerprint generation
-        this.device = new SpyDevice();
-        this.session = new SpySession(this.storage, this.config, this.device);
-        this.transport = new SpyTransport(this.config, this.storage);
-        this.autoEvents = new SpyAutoEvents(this, this.config);
-
-        // Domain Sync
-        if (this.config.get('domainSync')) {
-            this.syncDomains();
-        }
+        this.device = new PixelDevice();
+        this.session = new PixelSession(this.storage, this.config, this.device);
+        this.transport = new PixelTransport(this.config, this.storage);
+        this.autoEvents = new PixelAutoEvents(this, this.config);
 
         // Initial Pageview
         this.track('pageview');
-        Utils.log(this.config.get('debug'), 'SpyPixel initialized');
+        Utils.log(this.config.get('debug'), 'Pixel initialized');
     }
 
     /**
@@ -114,25 +109,12 @@ class SpyPixel {
      * Processes the initial command queue.
      */
     processQueue() {
-        const q = window._spy || [];
-        window._spy = { push: (args) => this.push(args) };
+        const q = window._pixel || [];
+        window._pixel = { push: (args) => this.push(args) };
         q.forEach(args => this.push(args));
-    }
-
-    /**
-     * Syncs visitor ID across domains.
-     */
-    syncDomains() {
-        const domains = this.config.get('domains') || [];
-        const current = window.location.hostname;
-        const visitorId = this.session.visitorId;
-
-        domains.filter(d => d !== current).forEach(d => {
-            new Image().src = `https://${d}/sync?visitor_id=${visitorId}`;
-        });
     }
 }
 
 // --- Start ---
-window.SpyPixel = new SpyPixel();
+window.Pixel = new Pixel();
 

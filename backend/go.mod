@@ -1,4 +1,4 @@
-module github.com/pamnard/SpyKit-Tracker/backend
+module github.com/pamnard/pixel/backend
 
 go 1.25.3
 

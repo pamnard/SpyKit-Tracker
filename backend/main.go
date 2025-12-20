@@ -1,4 +1,4 @@
-// Command spykit-backend exposes the SpyKit admin API and ClickHouse stats.
+// Command pixel-backend exposes the Pixel admin API and ClickHouse stats.
 package main
 
 import (
@@ -11,8 +11,8 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 
-	"github.com/pamnard/SpyKit-Tracker/backend/internal/api"
-	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
+	"github.com/pamnard/pixel/backend/internal/api"
+	"github.com/pamnard/pixel/backend/internal/meta"
 )
 
 func main() {

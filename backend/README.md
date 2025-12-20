@@ -1,4 +1,4 @@
-# Backend (spykit-backend)
+# Backend (pixel-backend)
 
 ## Components
 

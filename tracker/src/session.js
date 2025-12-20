@@ -3,7 +3,7 @@ import { Utils } from './utils.js';
 /**
  * Manages User, Visitor, and Session IDs.
  */
-export class SpySession {
+export class PixelSession {
     /**
      * @param {SpyStorage} storage Storage instance
      * @param {SpyConfig} config Config instance
@@ -48,7 +48,7 @@ export class SpySession {
 
         // Block Email
         if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strId)) {
-            console.warn('[SpyKit] Security Warning: user_id looks like an Email. Please use a hashed ID or internal UUID.');
+            console.warn('[Pixel] Security Warning: user_id looks like an Email. Please use a hashed ID or internal UUID.');
             return false;
         }
 

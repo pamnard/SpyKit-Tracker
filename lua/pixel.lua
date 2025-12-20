@@ -15,7 +15,7 @@ end
 -- Helper to get log file path
 local function get_log_file_path(prefix)
     local timestamp = os.date("*t")
-    local log_dir = "/var/log/spykit"
+    local log_dir = "/var/log/pixel"
     return string.format("%s/%s_%04d-%02d-%02d_%02d.log", 
         log_dir, prefix, timestamp.year, timestamp.month, timestamp.day, timestamp.hour)
 end
@@ -49,7 +49,7 @@ local function get_geoip_data(ip)
     
     -- Initialize MMDB if not already initted
     if not mmdb.initted() then
-        local ok, err = mmdb.init("/opt/spykit/geoip/GeoLite2-City.mmdb")
+        local ok, err = mmdb.init("/opt/pixel/geoip/GeoLite2-City.mmdb")
         if not ok then
             -- Only log error, return empty result to avoid crash
             -- ngx.log(ngx.ERR, "Failed to init MaxMind DB: ", err)
@@ -104,7 +104,7 @@ local function enrich_event(event)
     
     -- Privacy: Salt for IP hashing to prevent rainbow table attacks
     -- Ideally this should come from config, but for now we use a fixed salt
-    local ip_salt = "SpyKit_Privacy_Salt_v1"
+    local ip_salt = "Pixel_Privacy_Salt_v1"
 
     event.server = {
         -- Privacy: Store hash instead of raw IP

@@ -3,7 +3,7 @@ import { Utils } from './utils.js';
 /**
  * Collects device, screen, and browser information.
  */
-export class SpyDevice {
+export class PixelDevice {
     constructor() {
         this.adBlockActive = null;
         this.checkAdBlock();

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
+	"github.com/pamnard/pixel/backend/internal/meta"
 )
 
 // handleSettings supports GET and PUT for pixel settings.

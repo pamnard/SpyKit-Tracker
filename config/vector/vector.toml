@@ -3,7 +3,7 @@ data_dir = "/var/lib/vector"
 # --- Source: Read logs from shared volume ---
 [sources.nginx_logs]
 type = "file"
-include = ["/var/log/spykit/events*.log"]
+include = ["/var/log/pixel/events*.log"]
 ignore_older_secs = 600
 read_from = "beginning"
 

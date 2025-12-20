@@ -1,10 +1,10 @@
 /**
  * Handles automatic event tracking (clicks, scroll, forms, etc).
  */
-export class SpyAutoEvents {
+export class PixelAutoEvents {
     /**
-     * @param {SpyPixel} pixel Main pixel instance
-     * @param {SpyConfig} config Config instance
+     * @param {Pixel} pixel Main pixel instance
+     * @param {PixelConfig} config Config instance
      */
     constructor(pixel, config) {
         this.pixel = pixel;
@@ -56,12 +56,11 @@ export class SpyAutoEvents {
             const currentHost = window.location.hostname;
 
             if (hostname && hostname !== currentHost && this.config.get('clickTracking')) {
-                const isInternal = this.isInternalDomain(hostname);
-                this.pixel.track(isInternal ? 'internal_click' : 'external_click', {
+                this.pixel.track('external_click', {
                     url: href,
                     text: link.textContent?.trim(),
                     domain: hostname,
-                    is_cross_domain: isInternal
+                    is_external: true
                 });
             }
 
@@ -75,14 +74,8 @@ export class SpyAutoEvents {
         });
     }
 
-    /**
-     * Checks if a domain is internal (configured).
-     * @param {string} hostname Domain to check
-     * @returns {boolean} True if internal
-     */
-    isInternalDomain(hostname) {
-        const domains = this.config.get('domains') || [];
-        return domains.includes(hostname) || domains.some(d => hostname.endsWith('.' + d));
+    trackDownloads() {
+        // Handled in trackClicks to avoid duplicate listeners
     }
 
     /**
@@ -124,10 +117,6 @@ export class SpyAutoEvents {
         });
     }
 
-    trackDownloads() {
-        // Handled in trackClicks to avoid duplicate listeners
-    }
-
     /**
      * Tracks History API changes (SPA navigation).
      */
@@ -135,10 +124,10 @@ export class SpyAutoEvents {
         const pushState = history.pushState;
         history.pushState = function () {
             pushState.apply(this, arguments);
-            window.dispatchEvent(new Event('spy:location'));
+            window.dispatchEvent(new Event('pixel:location'));
         };
-        window.addEventListener('popstate', () => window.dispatchEvent(new Event('spy:location')));
-        window.addEventListener('spy:location', () => this.pixel.track('pageview'));
+        window.addEventListener('popstate', () => window.dispatchEvent(new Event('pixel:location')));
+        window.addEventListener('pixel:location', () => this.pixel.track('pageview'));
     }
 }
 

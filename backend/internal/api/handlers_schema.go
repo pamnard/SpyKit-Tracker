@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
+	"github.com/pamnard/pixel/backend/internal/meta"
 )
 
 // virtualSchema defines known keys for Map columns to expose them as fields in UI.

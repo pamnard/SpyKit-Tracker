@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	log.Println("Starting SpyKit Processor...")
+	log.Println("Starting Pixel Processor...")
 
 	// 1. Config
 	port := getenv("PROCESSOR_PORT", "8080")

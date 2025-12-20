@@ -1,7 +1,7 @@
 /**
  * Wrapper for LocalStorage persistence.
  */
-export class SpyStorage {
+export class PixelStorage {
     /**
      * @param {SpyConfig} config Configuration instance
      */

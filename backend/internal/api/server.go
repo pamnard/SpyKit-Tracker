@@ -7,7 +7,7 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 
-	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
+	"github.com/pamnard/pixel/backend/internal/meta"
 )
 
 // Server bundles data sources and handlers for the HTTP API.
@@ -80,7 +80,7 @@ func WithCORS(next http.Handler) http.Handler {
 // handleRoot handles the root endpoint.
 func (s *Server) handleRoot(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("SpyKit Backend API v2"))
+	w.Write([]byte("Pixel Backend API v2"))
 }
 
 // handleHealth returns 200 OK if the server is running.
