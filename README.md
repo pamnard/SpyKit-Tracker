@@ -4,7 +4,7 @@
 >
 > This project is currently in active development. Features, APIs, and database schemas may change without backward compatibility guarantees. Use in production with caution.
 >
-> We welcome feedback and contributions!
+> We welcome feedback and contributions! Contact - https://t.me/Pamnard
 
 **Pixel** is a high-performance, self-hosted web analytics system built for high-load projects.
 
