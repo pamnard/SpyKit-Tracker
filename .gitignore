@@ -33,9 +33,7 @@ venv/
 
 # Project Data (volumes are used instead)
 data/
-pocketbase/pb_data/
 logs/
-pixel.js
 
 # Local config overrides
 config.local.lua

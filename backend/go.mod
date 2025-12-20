@@ -1,10 +1,12 @@
-module example.com/spykit-backend
+module github.com/pamnard/SpyKit-Tracker/backend
 
 go 1.25.3
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.41.0
+	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/ua-parser/uap-go v0.0.0-20241012191800-bbb40edc15aa
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/crypto v0.31.0
 )
@@ -23,5 +25,6 @@ require (
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 )

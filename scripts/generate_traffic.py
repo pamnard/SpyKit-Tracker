@@ -16,9 +16,9 @@ except Exception as e:
     print(f"⚠️ Failed to load settings from backend: {e}. Using default.")
     TARGET_URL = "http://localhost:8081/track"
 
-THREADS = 500  # Увеличиваем кол-во потоков для 10k RPS
-DELAY_MIN = 0.0
-DELAY_MAX = 0.0  # Без задержек
+THREADS = 100  # Увеличиваем кол-во потоков для 10k RPS
+DELAY_MIN = 0.05
+DELAY_MAX = 0.1  # Без задержек
 
 # Глобальный счетчик для RPS
 import threading
@@ -91,15 +91,17 @@ def simulate_user_session():
         current_page = random.choice(PAGES)
 
         payload = {
-            "uid": user["uid"],
-            "sid": user["sid"],
-            "t": int(time.time() * 1000),
-            "e": event_type,
+            "user_id": user["uid"],
+            "session_id": user["sid"],
+            "timestamp": time.time(),
+            "event_name": event_type,
             "url": f"https://spykit.example.com{current_page}",
-            "ref": random.choice(REFERRERS),
-            "p": current_page,
-            "vp": f"{random.randint(320, 1920)}x{random.randint(600, 1080)}",
-            "lang": user["lang"],
+            "referrer": random.choice(REFERRERS),
+            "data": {
+                "page": current_page,
+                "viewport": f"{random.randint(320, 1920)}x{random.randint(600, 1080)}",
+                "lang": user["lang"]
+            }
         }
 
         if event_type == "purchase":

@@ -1,186 +1,284 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
+
+	badger "github.com/dgraph-io/badger/v4"
+)
+
+const (
+	// nGramSize defines the size of n-grams for Jaccard similarity calculation
+	nGramSize = 3
+	// fingerprintSimilarityThreshold defines the minimum Jaccard similarity
+	// for two fingerprints to be considered a match (0.0 to 1.0)
+	fingerprintSimilarityThreshold = 0.75
 )
 
 // ShortTermIdentity stores data for identification within a short window
 type ShortTermIdentity struct {
-	VisitorID   string
-	Fingerprint FingerprintData
-	SeenAt      time.Time
+	VisitorID   string          `json:"vid"`
+	Fingerprint FingerprintData `json:"fp"`
+	SeenAt      time.Time       `json:"t"`
 }
 
 type FingerprintData struct {
-	CanvasHash string
-	AudioHash  string
-	WebGLHash  string
-	TLSHash    string
+	CanvasHash string `json:"cnv"`
+	AudioHash  string `json:"aud"`
+	WebGLHash  string `json:"gl"`
+	TLSHash    string `json:"tls"`
 }
 
 type FingerprintService struct {
-	// BucketKey -> []ShortTermIdentity
-	// BucketKey reduces search space (e.g. IP + Screen + OS)
-	cache map[string][]ShortTermIdentity
-	mu    sync.RWMutex
-	ttl   time.Duration
+	db  *badger.DB
+	ttl time.Duration
 }
 
-func NewFingerprintService(ttl time.Duration) *FingerprintService {
-	s := &FingerprintService{
-		cache: make(map[string][]ShortTermIdentity),
-		ttl:   ttl,
+// jaccardSimilarity computes Jaccard similarity coefficient for two hash strings using n-grams.
+// Returns a value between 0.0 (completely different) and 1.0 (identical).
+func jaccardSimilarity(hash1, hash2 string, n int) float64 {
+	if hash1 == hash2 {
+		return 1.0
 	}
-	go s.cleanupLoop()
-	return s
+	if len(hash1) < n || len(hash2) < n {
+		return 0.0
+	}
+
+	set1 := make(map[string]bool)
+	set2 := make(map[string]bool)
+
+	for i := 0; i <= len(hash1)-n; i++ {
+		set1[hash1[i:i+n]] = true
+	}
+	for i := 0; i <= len(hash2)-n; i++ {
+		set2[hash2[i:i+n]] = true
+	}
+
+	intersection := 0
+	for k := range set1 {
+		if set2[k] {
+			intersection++
+		}
+	}
+
+	union := len(set1) + len(set2) - intersection
+	if union == 0 {
+		return 0.0
+	}
+
+	return float64(intersection) / float64(union)
+}
+
+// fuzzyMatch checks if two hash strings are similar based on Jaccard similarity threshold.
+func fuzzyMatch(hash1, hash2 string, threshold float64) bool {
+	if hash1 == "" || hash2 == "" {
+		return false
+	}
+	similarity := jaccardSimilarity(hash1, hash2, nGramSize)
+	return similarity >= threshold
+}
+
+// NewFingerprintService initializes BadgerDB
+func NewFingerprintService(dbPath string, ttl time.Duration) (*FingerprintService, error) {
+	opts := badger.DefaultOptions(dbPath)
+	opts.Logger = nil // Disable default logger
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start GC loop to reclaim disk space
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+		again:
+			err := db.RunValueLogGC(0.7)
+			if err == nil {
+				goto again
+			}
+		}
+	}()
+
+	return &FingerprintService{
+		db:  db,
+		ttl: ttl,
+	}, nil
+}
+
+// Close closes the database connection
+func (s *FingerprintService) Close() error {
+	return s.db.Close()
 }
 
 // Identify checks if the current visitor matches any recent visitor in the cache.
 // Returns (linkedVisitorID, found).
 func (s *FingerprintService) Identify(rawEvent map[string]interface{}) (string, bool) {
-	// 1. Extract data needed for key & matching
 	device, ok := rawEvent["device"].(map[string]interface{})
 	if !ok {
 		return "", false
 	}
 
-	// Extract Bucket Components (IP, Screen, Timezone, Platform)
-	// Try to find IP in server info or root
-	ip := getNestedString(rawEvent, "server", "ip")
-	if ip == "" {
-		ip = getNestedString(rawEvent, "ip")
+	bucketKey := buildBucketKey(device)
+	if bucketKey == "" {
+		return "", false
 	}
 
-	screenWidth := toString(device["screenWidth"])
+	currentFP := extractHeavyFingerprint(rawEvent, device)
+	if currentFP == nil {
+		return "", false
+	}
+
+	currentVisitorID := extractVisitorID(rawEvent)
+	if currentVisitorID == "" {
+		return "", false
+	}
+
+	return s.processCache(bucketKey, currentVisitorID, *currentFP)
+}
+
+// buildBucketKey constructs a stable key for grouping similar users.
+// It uses stable device signals (Timezone, Platform, Language, etc.) and
+// excludes volatile ones (IP, UserAgent versions).
+func buildBucketKey(device map[string]interface{}) string {
 	timezone := toString(device["timezone"])
 	platform := toString(device["platform"])
+	language := toString(device["language"])
+	concurrency := toString(device["hardwareConcurrency"])
 
-	// Strict bucketing: We need IP and Screen Width at minimum
-	if ip == "" || screenWidth == "" {
-		return "", false
+	// Protection against empty keys
+	if timezone == "" && platform == "" {
+		return ""
 	}
 
-	// 2. Build Bucket Key
-	// Key = IP_Subnet(Full IP for now) | ScreenWidth | Timezone | Platform
-	// This groups users who are on the same network, device model, and settings.
-	bucketKey := fmt.Sprintf("%s|%s|%s|%s", ip, screenWidth, timezone, platform)
+	// Screen Resolution Normalization
+	w := getFloat(device["screenWidth"])
+	h := getFloat(device["screenHeight"])
+	if h > w {
+		w, h = h, w
+	}
+	screenRes := fmt.Sprintf("%.0fx%.0f", w, h)
 
-	// 3. Extract Heavy Fingerprint
-	// We need at least one heavy signal to confirm identity within the bucket.
+	pixelRatio := getFloat(device["pixelRatio"])
+	colorDepth := getFloat(device["colorDepth"])
+
+	return fmt.Sprintf("%s|%s|%s|%s|%s|%.2f|%.0f",
+		timezone, platform, language, screenRes, concurrency, pixelRatio, colorDepth)
+}
+
+// extractHeavyFingerprint extracts high-entropy fingerprint data (canvas, audio, etc.).
+// Returns nil if no heavy signals are found.
+func extractHeavyFingerprint(rawEvent map[string]interface{}, device map[string]interface{}) *FingerprintData {
 	fpData, fpOk := device["fingerprint"].(map[string]interface{})
 	if !fpOk {
-		return "", false
+		return nil
 	}
+
 	canvasHash := toString(fpData["canvas"])
 	audioHash := toString(fpData["audio"])
 	webglHash := toString(fpData["webgl"])
-
-	// Extract TLS Fingerprint (from server block)
 	tlsHash := getNestedString(rawEvent, "server", "tls_fingerprint")
-	
-	// We need at least one heavy signal
+
 	if canvasHash == "" && audioHash == "" && webglHash == "" && tlsHash == "" {
-		return "", false
+		return nil
 	}
 
-	currentFP := FingerprintData{
+	return &FingerprintData{
 		CanvasHash: canvasHash,
 		AudioHash:  audioHash,
 		WebGLHash:  webglHash,
 		TLSHash:    tlsHash,
 	}
+}
 
-	currentVisitorID := toString(rawEvent["visitor_id"])
-	if currentVisitorID == "" {
-		currentVisitorID = toString(rawEvent["device_id"]) // Fallback
+// extractVisitorID gets the best available ID (visitor_id or fallback to device_id).
+func extractVisitorID(rawEvent map[string]interface{}) string {
+	vid := toString(rawEvent["visitor_id"])
+	if vid == "" {
+		vid = toString(rawEvent["device_id"])
 	}
-	if currentVisitorID == "" {
+	return vid
+}
+
+// processCache manages the cache: cleans expired items, finds matches, and adds the current user.
+// Returns the linked VisitorID if a match is found, otherwise empty string.
+func (s *FingerprintService) processCache(bucketKey, currentVisitorID string, currentFP FingerprintData) (string, bool) {
+	var bestMatchID string
+	var maxScore float64
+	now := time.Now()
+
+	err := s.db.Update(func(txn *badger.Txn) error {
+		// 1. Get existing candidates
+		var candidates []ShortTermIdentity
+		item, err := txn.Get([]byte(bucketKey))
+		if err == nil {
+			err = item.Value(func(val []byte) error {
+				return json.Unmarshal(val, &candidates)
+			})
+			if err != nil {
+				// If unmarshal fails, we treat it as empty and overwrite
+				candidates = []ShortTermIdentity{}
+			}
+		} else if err != badger.ErrKeyNotFound {
+			return err
+		}
+
+		// 2. Filter and Match
+		validCandidates := make([]ShortTermIdentity, 0, len(candidates))
+		for _, cand := range candidates {
+			// TTL logic: even if Badger handles key expiry, the list value might contain old entries
+			// if the key was updated recently. So we filter manually too.
+			if now.Sub(cand.SeenAt) > s.ttl {
+				continue
+			}
+			validCandidates = append(validCandidates, cand)
+
+			if cand.VisitorID != currentVisitorID {
+				score := calculateSimilarityScore(currentFP, cand.Fingerprint)
+				if score > maxScore && score >= fingerprintSimilarityThreshold {
+					maxScore = score
+					bestMatchID = cand.VisitorID
+				}
+			}
+		}
+
+		// 3. Add current
+		validCandidates = append(validCandidates, ShortTermIdentity{
+			VisitorID:   currentVisitorID,
+			Fingerprint: currentFP,
+			SeenAt:      now,
+		})
+
+		// 4. Save
+		data, err := json.Marshal(validCandidates)
+		if err != nil {
+			return err
+		}
+
+		// Set Entry with TTL
+		// Each update refreshes the TTL for the whole bucket
+		return txn.SetEntry(badger.NewEntry([]byte(bucketKey), data).WithTTL(s.ttl))
+	})
+
+	if err != nil {
+		fmt.Printf("Fingerprint DB Error: %v\n", err)
 		return "", false
 	}
 
-	// 4. Lookup & Match
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	candidates := s.cache[bucketKey]
-	var foundID string
-
-	// Filter expired and match
-	validCandidates := make([]ShortTermIdentity, 0, len(candidates))
-	now := time.Now()
-
-	for _, cand := range candidates {
-		if now.Sub(cand.SeenAt) > s.ttl {
-			continue
-		}
-		validCandidates = append(validCandidates, cand)
-
-		// Match Logic:
-		// If we haven't found a match yet...
-		if foundID == "" {
-			// Check if it's NOT the same ID (we want to link DIFFERENT sessions/domains)
-			if cand.VisitorID != currentVisitorID {
-				// Match Logic:
-				// If Canvas matches AND it's not empty -> Match
-				if currentFP.CanvasHash != "" && cand.Fingerprint.CanvasHash == currentFP.CanvasHash {
-					foundID = cand.VisitorID
-				}
-				// If Audio matches AND it's not empty -> Match (Backup signal)
-				if currentFP.AudioHash != "" && cand.Fingerprint.AudioHash == currentFP.AudioHash {
-					foundID = cand.VisitorID
-				}
-				// If WebGL matches AND it's not empty -> Match
-				if currentFP.WebGLHash != "" && cand.Fingerprint.WebGLHash == currentFP.WebGLHash {
-					foundID = cand.VisitorID
-				}
-				// If TLS matches AND it's not empty -> Match (Strong signal within same IP/Bucket)
-				if currentFP.TLSHash != "" && cand.Fingerprint.TLSHash == currentFP.TLSHash {
-					foundID = cand.VisitorID
-				}
-			}
-		}
-	}
-
-	// Update cache with cleaned list
-	s.cache[bucketKey] = validCandidates
-
-	// Add current user to cache
-	// We append to the list so this user can be found by others (or subsequent requests)
-	s.cache[bucketKey] = append(s.cache[bucketKey], ShortTermIdentity{
-		VisitorID:   currentVisitorID,
-		Fingerprint: currentFP,
-		SeenAt:      now,
-	})
-
-	if foundID != "" {
-		return foundID, true
-	}
-
-	return "", false
+	return bestMatchID, bestMatchID != ""
 }
 
-func (s *FingerprintService) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	for range ticker.C {
-		s.mu.Lock()
-		now := time.Now()
-		for key, candidates := range s.cache {
-			valid := make([]ShortTermIdentity, 0)
-			for _, c := range candidates {
-				if now.Sub(c.SeenAt) < s.ttl {
-					valid = append(valid, c)
-				}
-			}
-			if len(valid) == 0 {
-				delete(s.cache, key)
-			} else {
-				s.cache[key] = valid
-			}
-		}
-		s.mu.Unlock()
-	}
+// calculateSimilarityScore sums up Jaccard similarities for all available signals.
+// Higher score means better match.
+func calculateSimilarityScore(fp1, fp2 FingerprintData) float64 {
+	score := 0.0
+	score += jaccardSimilarity(fp1.TLSHash, fp2.TLSHash, nGramSize)
+	score += jaccardSimilarity(fp1.CanvasHash, fp2.CanvasHash, nGramSize)
+	score += jaccardSimilarity(fp1.WebGLHash, fp2.WebGLHash, nGramSize)
+	score += jaccardSimilarity(fp1.AudioHash, fp2.AudioHash, nGramSize)
+	return score
 }
 
 // Helper to safely get nested map values
@@ -205,3 +303,16 @@ func getNestedString(root map[string]interface{}, path ...string) string {
 	return ""
 }
 
+// getFloat safely extracts a float64 from an interface
+func getFloat(v interface{}) float64 {
+	switch val := v.(type) {
+	case float64:
+		return val
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	default:
+		return 0
+	}
+}

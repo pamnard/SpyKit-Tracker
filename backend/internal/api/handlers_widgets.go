@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 )
 
 // handleWidgets supports list (GET) and create (POST).

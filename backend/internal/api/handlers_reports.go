@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 )
 
 // handleReports supports list (GET) and create (POST).

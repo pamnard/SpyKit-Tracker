@@ -11,8 +11,8 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 
-	"example.com/spykit-backend/internal/api"
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/api"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 )
 
 func main() {

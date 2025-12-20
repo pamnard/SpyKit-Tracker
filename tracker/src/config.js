@@ -71,7 +71,8 @@ export class SpyConfig {
             endpoint: v => typeof v === 'string' && v.startsWith('/'),
             batchSize: v => typeof v === 'number' && v >= 1,
             debug: v => typeof v === 'boolean',
-            domains: v => Array.isArray(v)
+            domains: v => Array.isArray(v),
+            traffic: v => typeof v === 'object' && v !== null && !Array.isArray(v)
         };
 
         if (validators[key] && !validators[key](value)) {

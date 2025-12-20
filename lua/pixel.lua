@@ -102,9 +102,15 @@ local function enrich_event(event)
     -- Get Geo Data safely
     local geo = get_geoip_data(target_ip)
     
+    -- Privacy: Salt for IP hashing to prevent rainbow table attacks
+    -- Ideally this should come from config, but for now we use a fixed salt
+    local ip_salt = "SpyKit_Privacy_Salt_v1"
+
     event.server = {
-        ip = ngx.var.remote_addr,
-        real_ip = target_ip,
+        -- Privacy: Store hash instead of raw IP
+        ip_hash = ngx.md5(ngx.var.remote_addr .. ip_salt),
+        real_ip_hash = ngx.md5(target_ip .. ip_salt),
+        
         user_agent = ngx.var.http_user_agent,
         accept_language = ngx.var.http_accept_language,
         accept_encoding = ngx.var.http_accept_encoding,

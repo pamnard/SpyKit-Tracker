@@ -33,6 +33,8 @@ services:
     environment:
       - MAXMIND_ACCOUNT_ID=${MAXMIND_ACCOUNT_ID}
       - MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY}
+      - PIXEL_ENDPOINT=/track
+      - PIXEL_FILENAME=pixel.js
     volumes:
       - ./config/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - ./lua:/opt/spykit/lua:ro
@@ -114,23 +116,12 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./config/clickhouse/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
       # - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
-    networks:
-      - spykit_net
-
-  # --- 4. Profiles DB (PocketBase) ---
-  pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
-    container_name: spykit_pocketbase
-    restart: always
-    ports:
-      - "${POCKETBASE_PORT}:8090"
-    volumes:
-      - pocketbase_data:/pb_data
     networks:
       - spykit_net
 
@@ -147,16 +138,16 @@ services:
       - CLICKHOUSE_HOST=clickhouse:8123
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - POCKETBASE_URL=http://pocketbase:8090
       - REPORT_DB_PATH=/app/data/reports.db
       - INITIAL_ADMIN_USER=admin
       - INITIAL_ADMIN_PASSWORD=secret
       - JWT_SECRET=change_me_in_prod
+      - PIXEL_ENDPOINT=/track
+      - PIXEL_FILENAME=pixel.js
     volumes:
       - backend_data:/app/data
     depends_on:
       - clickhouse
-      - pocketbase
     networks:
       - spykit_net
 
@@ -189,7 +180,5 @@ volumes:
     name: spykit_pixel_dist
   geoip_data:
     name: spykit_geoip_data
-  pocketbase_data:
-    name: spykit_pocketbase_data
   backend_data:
     name: spykit_backend_data

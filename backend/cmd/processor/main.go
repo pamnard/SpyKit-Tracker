@@ -26,7 +26,12 @@ func main() {
 	ch := mustConnectClickHouse(chHost, chUser, chPass)
 
 	// 2.5. Init Fingerprint Service (Session Handoff)
-	fpService := NewFingerprintService(15 * time.Minute)
+	// Using BadgerDB for persistence. Path: ./badger-data
+	fpService, err := NewFingerprintService("./badger-data", 7*24*time.Hour)
+	if err != nil {
+		log.Fatalf("Failed to init fingerprint service: %v", err)
+	}
+	defer fpService.Close()
 
 	// 3. HTTP Handler
 	http.HandleFunc("/ingest", func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +41,7 @@ func main() {
 		}
 
 		// Prepare ClickHouse batch
-		batch, err := ch.PrepareBatch(context.Background(), "INSERT INTO default.events (timestamp, event_name, ids, context, device, geo, traffic, tech, params)")
+		batch, err := ch.PrepareBatch(context.Background(), "INSERT INTO default.events (timestamp, event_name, ids, page, device, geo, traffic, tech, params)")
 		if err != nil {
 			log.Printf("Failed to prepare batch: %v", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -77,7 +82,7 @@ func main() {
 				event.Timestamp,
 				event.EventName,
 				event.IDs,
-				event.Context,
+				event.Page,
 				event.Device,
 				event.Geo,
 				event.Traffic,

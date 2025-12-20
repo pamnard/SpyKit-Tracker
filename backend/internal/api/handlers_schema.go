@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 )
 
 // virtualSchema defines known keys for Map columns to expose them as fields in UI.
@@ -16,25 +16,28 @@ var virtualSchema = map[string][]string{
 	"ids": {
 		"user_id", "visitor_id", "session_id",
 	},
-	"context": {
-		"ip", "user_agent", "url", "referrer",
+	"page": {
+		"url", "host", "path", "query",
 	},
 	"device": {
-		"platform", "screen_width", "screen_height", "viewport_width", "viewport_height",
+		"user_agent","platform", "screen_width", "screen_height", "viewport_width", "viewport_height",
 		"color_depth", "pixel_ratio", "orientation", "timezone", "gpu_renderer", "language",
+		"model", "os_name", "os_version", "browser_name", "browser_version", "device_type",
+		"architecture", "platform_version", "is_webview", "webview",
 	},
 	"geo": {
-		"country", "region", "city", "postal_code", "latitude", "longitude", "continent", "metro_code", "timezone",
+		"ip_hash", "country", "region", "city", "postal_code", "latitude", "longitude", "continent", "metro_code", "timezone",
 	},
 	"tech": {
-		"ad_block", "pdf_viewer", "webdriver",
+		"ad_block", "pdf_viewer",
 		// Performance (from JS)
 		"ttfb", "domLoad", "fullLoad",
 		// Connection (from JS)
 		"effectiveType", "downlink", "rtt", "saveData",
 	},
 	"traffic": {
-		"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+		"referrer", "referrer_host", "referrer_path", "referrer_query",
+		"source", "channel", "campaign", "term", "content",
 	},
 }
 
@@ -241,10 +244,10 @@ func (s *Server) handleListViews(w http.ResponseWriter, r *http.Request) {
 			// Let's assume only managed views are relevant, or expose them without ID.
 			continue
 		}
-		views = append(views, v)
+		resultViews = append(resultViews, v)
 	}
 
-	writeJSON(w, http.StatusOK, views)
+	writeJSON(w, http.StatusOK, resultViews)
 }
 
 // handleViewByID handles GET (show create), PUT (update), and DELETE operations for a specific view by ID.

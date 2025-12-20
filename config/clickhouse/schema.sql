@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS default.events
     `event_name` String,
     
     `ids` Map(String, String),     -- user_id, visitor_id, session_id
-    `context` Map(String, String), -- ip, user_agent, page_url, referrer
-    `device` Map(String, String),  -- platform, screen_*, language, timezone
-    `geo` Map(String, String),     -- country, city, region, postal_code, latitude, longitude, continent, metro_code, timezone
-    `traffic` Map(String, String), -- utm_source, utm_medium, etc
+    `page` Map(String, String),    -- url, host, path, query
+    `device` Map(String, String),  -- platform, user_agent, screen_*, language, timezone, is_bot
+    `geo` Map(String, String),     -- ip_hash, country, city, region, postal_code...
+    `traffic` Map(String, String), -- referrer_*, source, channel, campaign, term, content
     `tech` Map(String, String),    -- performance metrics, connection info, ad_block
     `params` Map(String, String)   -- custom event parameters
 )

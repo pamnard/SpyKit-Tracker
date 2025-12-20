@@ -14,6 +14,7 @@ export class SpyDevice {
             webgl: null
         };
 
+        this.clientHints = {};
         this.readyPromise = this.initFingerprints();
     }
 
@@ -33,11 +34,28 @@ export class SpyDevice {
             await Promise.all([
                 this.getAudioFingerprint().then(res => this.fingerprintData.audio = res),
                 this.getCanvasFingerprintAsync().then(res => this.fingerprintData.canvas = res),
-                this.getWebGLFingerprintAsync().then(res => this.fingerprintData.webgl = res)
+                this.getWebGLFingerprintAsync().then(res => this.fingerprintData.webgl = res),
+                this.getHighEntropyValues().then(res => this.clientHints = res)
             ]);
         } catch (e) {
             console.error('Fingerprint error:', e);
         }
+    }
+
+    /**
+     * Gets high-entropy Client Hints if available (Chrome-based only).
+     * @returns {Promise<Object>} Object with model, platformVersion etc.
+     */
+    getHighEntropyValues() {
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            return navigator.userAgentData.getHighEntropyValues([
+                'architecture',
+                'model',
+                'platformVersion',
+                'fullVersionList'
+            ]).catch(() => ({}));
+        }
+        return Promise.resolve({});
     }
 
     /**
@@ -103,6 +121,58 @@ export class SpyDevice {
     }
 
     /**
+     * Detects webview type from user agent and window objects.
+     * @returns {string|null} WebView type (e.g., "Telegram", "Facebook") or null if not a webview
+     */
+    detectWebview() {
+        const ua = navigator.userAgent;
+
+        // Telegram WebView Android
+        if (ua.includes('Android') && typeof window.TelegramWebview !== 'undefined') {
+            return 'Telegram';
+        }
+
+        // Telegram WebView iOS
+        if (ua.includes('iPhone') && typeof window.TelegramWebviewProxy !== 'undefined' && typeof window.TelegramWebviewProxyProto !== 'undefined') {
+            return 'Telegram';
+        }
+
+        // Facebook iOS/Android WebView
+        if (ua.includes('FBAN') || ua.includes('FBAV') || ua.includes('FBIOS')) {
+            return 'Facebook';
+        }
+
+        // Instagram WebView (often uses similar pattern to Facebook)
+        if (ua.includes('Instagram')) {
+            return 'Instagram';
+        }
+
+        // WhatsApp WebView
+        if (ua.includes('WhatsApp')) {
+            return 'WhatsApp';
+        }
+
+        // Twitter WebView
+        if (ua.includes('Twitter')) {
+            return 'Twitter';
+        }
+
+        // LinkedIn WebView
+        if (ua.includes('LinkedInApp')) {
+            return 'LinkedIn';
+        }
+
+        // Slack WebView
+        if (ua.includes('Slack')) {
+            return 'Slack';
+        }
+
+        // If no specific webview type detected, return null
+        // Backend will check isWebView() and set "Unknown WebView" if needed
+        return null;
+    }
+
+    /**
      * Gathers all available device info.
      * @returns {Object} Device information object
      */
@@ -123,13 +193,22 @@ export class SpyDevice {
             languages: navigator.languages ? Array.from(navigator.languages) : [navigator.language],
 
             userAgent: navigator.userAgent,
-            platform: navigator.platform,
+            platform: (navigator.userAgentData && navigator.userAgentData.platform) || navigator['platform'],
+            hardwareConcurrency: navigator.hardwareConcurrency || null,
             webdriver: navigator.webdriver,
+
+            // Client Hints (High Entropy)
+            model: this.clientHints.model || '',
+            platformVersion: this.clientHints.platformVersion || '',
+            architecture: this.clientHints.architecture || '',
+
             pdfViewerEnabled: navigator.pdfViewerEnabled,
             doNotTrack: navigator.doNotTrack === '1' || navigator.doNotTrack === 'yes',
             cookieEnabled: navigator.cookieEnabled,
 
             adBlock: this.adBlockActive,
+
+            webview: this.detectWebview(),
 
             gpuRenderer: this.getGPU(),
             performance: this.getPerformance(),
@@ -282,17 +361,29 @@ export class SpyDevice {
     }
 
     /**
-     * Generates a basic browser fingerprint for Visitor ID.
+     * Generates a basic browser fingerprint intended to be stable across
+     * WebView and standard browser on the same device.
+     * Excludes User-Agent and volatile version numbers.
      * @returns {string} Fingerprint hash
      */
     getBasicFingerprint() {
         try {
+            // Normalize screen dimensions to handle orientation changes
+            const width = screen.width;
+            const height = screen.height;
+            const res = (width < height) ? `${width}x${height}` : `${height}x${width}`;
+
             const fp = [
-                navigator.userAgent,
-                screen.width + 'x' + screen.height,
-                new Date().getTimezoneOffset(),
-                navigator.language
+                res,
+                screen.colorDepth,
+                window.devicePixelRatio,
+                navigator.hardwareConcurrency,
+                navigator['deviceMemory'], // Available in Chrome-based browsers
+                Intl.DateTimeFormat().resolvedOptions().timeZone,
+                navigator.language,
+                (navigator.userAgentData && navigator.userAgentData.platform) || navigator['platform']
             ].join('|');
+
             return Utils.hashString(fp);
         } catch (e) {
             return 'rn_' + Math.random().toString(36).substr(2, 12);

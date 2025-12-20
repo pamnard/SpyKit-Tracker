@@ -19,16 +19,12 @@ export class SpySession {
     }
 
     /**
-     * Gets existing visitor_id or generates a new one.
+     * Gets visitor_id.
+     * GDPR compliant: derived from stable fingerprint, no storage used.
      * @returns {string} Visitor ID
      */
     getOrSetVisitorId() {
-        let id = this.storage.get('visitor_id');
-        if (!id) {
-            id = this.device.getBasicFingerprint(); // Use device method
-            this.storage.set('visitor_id', id);
-        }
-        return id;
+        return this.device.getBasicFingerprint();
     }
 
     /**
@@ -36,8 +32,27 @@ export class SpySession {
      * @param {string} id User ID
      */
     setUserId(id) {
+        if (!this.isValidUserId(id)) return;
         this.userId = id;
         this.storage.set('user_id', id);
+    }
+
+    /**
+     * Validates User ID format to prevent PII leakage.
+     * @param {string} id User ID
+     * @returns {boolean} True if valid
+     */
+    isValidUserId(id) {
+        if (!id) return false;
+        const strId = String(id);
+
+        // Block Email
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strId)) {
+            console.warn('[SpyKit] Security Warning: user_id looks like an Email. Please use a hashed ID or internal UUID.');
+            return false;
+        }
+
+        return true;
     }
 
     /**

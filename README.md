@@ -18,6 +18,9 @@ Unlike SaaS solutions, SpyKit is deployed on your own infrastructure (Docker/K8s
   - **Vector** aggregates and buffers logs.
   - **ClickHouse** stores terabytes of data and executes SQL queries instantly.
 - **Privacy-First:** We do NOT collect PII (emails, names) automatically. The system is designed to be privacy-friendly and can be configured for full GDPR compliance.
+  - **Stateless Identification:** `visitor_id` is derived from stable device parameters and is NOT stored in cookies or localStorage.
+  - **No PII by default:** The tracker actively prevents storing emails as User IDs.
+  - **IP Anonymization:** IP addresses are salted and hashed on the edge (Nginx) before storage. We store only MD5 hashes (`ip_hash`) for uniqueness checks, not raw IPs.
 - **Lightweight Tracker:** JS tracker weighs only **~2KB** (gzipped) and does not block rendering.
 - **Cross-Domain Tracking:** Supports user synchronization across different domains.
 - **AdBlock Bypass:** Works in a First-party context (via Nginx proxy on your main domain), bypassing most ad blockers and ITP.

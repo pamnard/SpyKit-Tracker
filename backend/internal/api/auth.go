@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )

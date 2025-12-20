@@ -7,7 +7,7 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 )
 
 // Server bundles data sources and handlers for the HTTP API.

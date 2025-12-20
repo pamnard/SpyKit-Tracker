@@ -1,37 +1,32 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
+	"os"
 
-	"example.com/spykit-backend/internal/meta"
+	"github.com/pamnard/SpyKit-Tracker/backend/internal/meta"
 )
 
 // handleSettings supports GET and PUT for pixel settings.
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, http.StatusOK, s.metaStore.GetSettings())
-	case http.MethodPut:
-		var settings meta.PixelSettings
-		if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid_json", err)
-			return
+		// Return settings from environment variables instead of DB
+		settings := meta.PixelSettings{
+			Endpoint: os.Getenv("PIXEL_ENDPOINT"),
+			FileName: os.Getenv("PIXEL_FILENAME"),
 		}
-		// Validate
-		if settings.FileName == "" {
-			writeJSONError(w, http.StatusBadRequest, "file_name_required", nil)
-			return
-		}
+		// Fallback to defaults if env vars are missing (should match docker-compose defaults)
 		if settings.Endpoint == "" {
-			writeJSONError(w, http.StatusBadRequest, "endpoint_required", nil)
-			return
+			settings.Endpoint = "/track"
 		}
-		if err := s.metaStore.SaveSettings(settings); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "settings_save_failed", err)
-			return
+		if settings.FileName == "" {
+			settings.FileName = "pixel.js"
 		}
 		writeJSON(w, http.StatusOK, settings)
+	case http.MethodPut:
+		// Editing settings via API is disabled in favor of environment variables
+		writeJSONError(w, http.StatusMethodNotAllowed, "settings_read_only", nil)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -39,14 +34,13 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 // handleSettingsWrapper handles public GET and protected PUT for settings.
 func (s *Server) handleSettingsWrapper(w http.ResponseWriter, r *http.Request) {
-	// Allow public GET to support Nginx/Pixel fetching config without auth
+	// Allow public GET to support frontend fetching config without auth
 	if r.Method == http.MethodGet {
 		s.handleSettings(w, r)
 		return
 	}
 
 	// For any other method (PUT), require authentication and admin role
-	// We manually wrap the handler with middlewares
 	adminHandler := s.AuthMiddleware(s.RequireAdmin(http.HandlerFunc(s.handleSettings)))
 	adminHandler.ServeHTTP(w, r)
 }

@@ -18,6 +18,15 @@
         _spy.push(['config', 'retryInterval', 30000]); // check more often (30 sec)
         _spy.push(['config', 'domainSync', true]); // enable cross-domain synchronization
 
+        // Set traffic attribution parameters (from CRM or other source)
+        _spy.push(['config', 'traffic', {
+            source: 'google',
+            channel: 'cpc',
+            campaign: 'summer2024',
+            term: 'keyword',
+            content: 'ad1'
+        }]);
+
         // Disable individual events (all enabled by default)
         // _spy.push(['config', 'scrollTracking', false]);
         // _spy.push(['config', 'clickTracking', false]);
@@ -60,6 +69,7 @@
         function testCustomEvent() {
             _spy.push(['track', 'purchase', { value: 100, currency: 'USD' }]);
         }
+
     </script>
 </body>
 

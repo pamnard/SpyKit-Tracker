@@ -102,25 +102,13 @@ class SpyPixel {
 
             // Objects
             device: deviceInfo,
-            utm: this.getUTM(),
+            traffic: this.config.get('traffic') || {},
             data: data
         };
 
         this.transport.send(payload);
     }
 
-    /**
-     * Parses UTM parameters from URL.
-     * @returns {Object} UTM parameters
-     */
-    getUTM() {
-        const p = new URLSearchParams(window.location.search);
-        const utm = {};
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(k => {
-            if (p.has(k)) utm[k] = p.get(k);
-        });
-        return utm;
-    }
 
     /**
      * Processes the initial command queue.
