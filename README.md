@@ -66,7 +66,6 @@ graph LR
     Vector -->|"Batch Insert"| ClickHouse[("ClickHouse DB")]
     ClickHouse -->|SQL| Backend["Go Backend"]
     Backend -->|API| Frontend["React Dashboard"]
-    Backend -->|Auth| PocketBase[("PocketBase Auth")]
 ```
 
 1.  **Tracker (JS):** Collects events (pageview, click, custom) and sends them to Nginx.
@@ -74,7 +73,6 @@ graph LR
 3.  **Pipeline (Vector):** Reads log files, buffers, transforms, and batch-inserts into ClickHouse. Guarantees delivery (At-least-once).
 4.  **Storage (ClickHouse):** Columnar DB for analytics. Stores raw events.
 5.  **API (Go):** Backend for the admin panel. Generates SQL queries for ClickHouse, manages widget configuration (BoltDB).
-6.  **Auth (PocketBase):** Manages users and access rights.
 
 ## 🛠 Quick Start (Docker Compose)
 
@@ -101,9 +99,6 @@ For local development or VPS testing:
     # Frontend port
     FRONT_HOST_PORT=5173
     FRONT_CONTAINER_PORT=5173
-
-    # PocketBase Admin UI port
-    POCKETBASE_PORT=8090
 
     # ClickHouse ports
     CLICKHOUSE_HTTP_PORT=8123
@@ -181,14 +176,12 @@ _pixel.push(["config", "clickTracking", true]); // Toggle click tracking (defaul
 | Variable          | Description                               |
 | ----------------- | ----------------------------------------- |
 | `CLICKHOUSE_HOST` | ClickHouse host (e.g., `clickhouse:8123`) |
-| `POCKETBASE_URL`  | PocketBase URL for token validation       |
 | `JWT_SECRET`      | Secret key for signing tokens             |
 
 ### Databases
 
 - **ClickHouse:** Stores events in the `events` table. Schema is created automatically on startup.
-- **BoltDB (`data/backend_data`):** Stores dashboard settings (widgets, reports).
-- **PocketBase (`pocketbase_data`):** Stores admin users.
+- **BoltDB (`data/backend_data`):** Stores dashboard settings (widgets, reports) and users.
 
 ## 📂 Project Structure
 
